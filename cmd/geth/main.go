@@ -145,6 +145,7 @@ var (
 		utils.GpoMaxGasPriceFlag,
 		utils.EWASMInterpreterFlag,
 		utils.EVMInterpreterFlag,
+		utils.MinerNotifyFullFlag,
 		configFileFlag,
 		// Quorum
 		utils.RaftModeFlag,

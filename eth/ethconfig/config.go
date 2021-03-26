@@ -210,28 +210,51 @@ type Config struct {
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
-func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
+func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
-		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
+		// chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
 		return clique.New(chainConfig.Clique, db)
 	}
 	// Otherwise assume proof-of-work
-	switch config.Ethash.PowMode {
+	switch config.PowMode {
 	case ethash.ModeFake:
 		log.Warn("Ethash used in fake mode")
-		return ethash.NewFaker()
 	case ethash.ModeTest:
 		log.Warn("Ethash used in test mode")
-		return ethash.NewTester(nil, noverify)
 	case ethash.ModeShared:
 		log.Warn("Ethash used in shared mode")
-		return ethash.NewShared()
 	default:
 		// For Quorum, Raft run as a separate service, so
 		// the Ethereum service still needs a consensus engine,
 		// use the consensus with the lightest overhead
 		log.Warn("Ethash used in full fake mode")
-		return ethash.NewFullFaker()
+		// return ethash.NewFullFaker()
+		return ethash.New(ethash.Config{
+			PowMode:          ethash.ModeFullFake,
+			CacheDir:         stack.ResolvePath(config.CacheDir),
+			CachesInMem:      config.CachesInMem,
+			CachesOnDisk:     config.CachesOnDisk,
+			CachesLockMmap:   config.CachesLockMmap,
+			DatasetDir:       config.DatasetDir,
+			DatasetsInMem:    config.DatasetsInMem,
+			DatasetsOnDisk:   config.DatasetsOnDisk,
+			DatasetsLockMmap: config.DatasetsLockMmap,
+			NotifyFull:       config.NotifyFull,
+		}, notify, noverify)
 	}
+	engine := ethash.New(ethash.Config{
+		PowMode:          config.PowMode,
+		CacheDir:         stack.ResolvePath(config.CacheDir),
+		CachesInMem:      config.CachesInMem,
+		CachesOnDisk:     config.CachesOnDisk,
+		CachesLockMmap:   config.CachesLockMmap,
+		DatasetDir:       config.DatasetDir,
+		DatasetsInMem:    config.DatasetsInMem,
+		DatasetsOnDisk:   config.DatasetsOnDisk,
+		DatasetsLockMmap: config.DatasetsLockMmap,
+		NotifyFull:       config.NotifyFull,
+	}, notify, noverify)
+	engine.SetThreads(-1) // Disable CPU mining
+	return engine
 }
