@@ -17,7 +17,6 @@
 package graphql
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -28,23 +27,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func TestBuildSchema(t *testing.T) {
@@ -67,7 +59,7 @@ func TestBuildSchema(t *testing.T) {
 
 // Tests that a graphQL request is successfully handled when graphql is enabled on the specified endpoint
 func TestGraphQLBlockSerialization(t *testing.T) {
-	stack := createNode(t, true)
+	stack := createNode(t, true, false)
 	defer stack.Close()
 	// start node
 	if err := stack.Start(); err != nil {
@@ -169,9 +161,45 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 	}
 }
 
+func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
+	stack := createNode(t, true, true)
+	defer stack.Close()
+	// start node
+	if err := stack.Start(); err != nil {
+		t.Fatalf("could not start node: %v", err)
+	}
+
+	for i, tt := range []struct {
+		body string
+		want string
+		code int
+	}{
+		{
+			body: `{"query": "{block {number transactions { from { address } to { address } value hash type accessList { address storageKeys } index}}}"}`,
+			want: `{"data":{"block":{"number":1,"transactions":[{"from":{"address":"0x71562b71999873db5b286df957af199ec94617f7"},"to":{"address":"0x0000000000000000000000000000000000000dad"},"value":"0x64","hash":"0x4f7b8d718145233dcf7f29e34a969c63dd4de8715c054ea2af022b66c4f4633e","type":0,"accessList":[],"index":0},{"from":{"address":"0x71562b71999873db5b286df957af199ec94617f7"},"to":{"address":"0x0000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x9c6c2c045b618fe87add0e49ba3ca00659076ecae00fd51de3ba5d4ccf9dbf40","type":1,"accessList":[{"address":"0x0000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":1}]}}}`,
+			code: 200,
+		},
+	} {
+		resp, err := http.Post(fmt.Sprintf("%s/graphql", stack.HTTPEndpoint()), "application/json", strings.NewReader(tt.body))
+		if err != nil {
+			t.Fatalf("could not post: %v", err)
+		}
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("could not read from response body: %v", err)
+		}
+		if have := string(bodyBytes); have != tt.want {
+			t.Errorf("testcase %d %s,\nhave:\n%v\nwant:\n%v", i, tt.body, have, tt.want)
+		}
+		if tt.code != resp.StatusCode {
+			t.Errorf("testcase %d %s,\nwrong statuscode, have: %v, want: %v", i, tt.body, resp.StatusCode, tt.code)
+		}
+	}
+}
+
 // Tests that a graphQL request is not handled successfully when graphql is not enabled on the specified endpoint
 func TestGraphQLHTTPOnSamePort_GQLRequest_Unsuccessful(t *testing.T) {
-	stack := createNode(t, false)
+	stack := createNode(t, false, false)
 	defer stack.Close()
 	if err := stack.Start(); err != nil {
 		t.Fatalf("could not start node: %v", err)
@@ -185,33 +213,7 @@ func TestGraphQLHTTPOnSamePort_GQLRequest_Unsuccessful(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// Tests that 400 is returned when an invalid RPC request is made.
-func TestGraphQL_BadRequest(t *testing.T) {
-	stack := createNode(t, true)
-	defer stack.Close()
-	// start node
-	if err := stack.Start(); err != nil {
-		t.Fatalf("could not start node: %v", err)
-	}
-	// create http request
-	body := strings.NewReader("{\"query\": \"{bleh{number}}\",\"variables\": null}")
-	gqlReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/graphql", stack.HTTPEndpoint()), body)
-	if err != nil {
-		t.Error("could not issue new http request ", err)
-	}
-	gqlReq.Header.Set("Content-Type", "application/json")
-	// read from response
-	resp := doHTTPRequest(t, gqlReq)
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("could not read from response body: %v", err)
-	}
-	expected := "{\"errors\":[{\"message\":\"Cannot query field \\\"bleh\\\" on type \\\"Query\\\".\",\"locations\":[{\"line\":1,\"column\":2}]}]}"
-	assert.Equal(t, expected, string(bodyBytes))
-	assert.Equal(t, 400, resp.StatusCode)
-}
-
-func createNode(t *testing.T, gqlEnabled bool) *node.Node {
+func createNode(t *testing.T, gqlEnabled bool, txEnabled bool) *node.Node {
 	stack, err := node.New(&node.Config{
 		HTTPHost: "127.0.0.1",
 		HTTPPort: 0,
@@ -224,7 +226,11 @@ func createNode(t *testing.T, gqlEnabled bool) *node.Node {
 	if !gqlEnabled {
 		return stack
 	}
-	createGQLService(t, stack)
+	if !txEnabled {
+		createGQLService(t, stack)
+	} else {
+		createGQLServiceWithTransactions(t, stack)
+	}
 	return stack
 }
 
@@ -265,208 +271,86 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	}
 }
 
-func doHTTPRequest(t *testing.T, req *http.Request) *http.Response {
-	client := &http.Client{}
-	resp, err := client.Do(req)
+func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
+	// create backend
+	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	funds := big.NewInt(1000000000)
+	dad := common.HexToAddress("0x0000000000000000000000000000000000000dad")
+
+	ethConf := &ethconfig.Config{
+		Genesis: &core.Genesis{
+			Config:     params.AllEthashProtocolChanges,
+			GasLimit:   11500000,
+			Difficulty: big.NewInt(1048576),
+			Alloc: core.GenesisAlloc{
+				address: {Balance: funds},
+				// The address 0xdad sloads 0x00 and 0x01
+				dad: {
+					Code: []byte{
+						byte(vm.PC),
+						byte(vm.PC),
+						byte(vm.SLOAD),
+						byte(vm.SLOAD),
+					},
+					Nonce:   0,
+					Balance: big.NewInt(0),
+				},
+			},
+		},
+		Ethash: ethash.Config{
+			PowMode: ethash.ModeFake,
+		},
+		NetworkId:               1337,
+		TrieCleanCache:          5,
+		TrieCleanCacheJournal:   "triecache",
+		TrieCleanCacheRejournal: 60 * time.Minute,
+		TrieDirtyCache:          5,
+		TrieTimeout:             60 * time.Minute,
+		SnapshotCache:           5,
+	}
+
+	ethBackend, err := eth.New(stack, ethConf)
 	if err != nil {
-		t.Fatal("could not issue a GET request to the given endpoint", err)
-
+		t.Fatalf("could not create eth backend: %v", err)
 	}
-	return resp
-}
+	signer := types.LatestSigner(ethConf.Genesis.Config)
 
-func TestQuorumTransaction_getReceipt_defaultReceiptGetter(t *testing.T) {
-	graphqlTx := &Transaction{tx: &types.Transaction{}, backend: &StubBackend{}}
+	legacyTx, _ := types.SignNewTx(key, signer, &types.LegacyTx{
+		Nonce:    uint64(0),
+		To:       &dad,
+		Value:    big.NewInt(100),
+		Gas:      50000,
+		GasPrice: big.NewInt(1),
+	})
+	envelopTx, _ := types.SignNewTx(key, signer, &types.AccessListTx{
+		ChainID:  ethConf.Genesis.Config.ChainID,
+		Nonce:    uint64(1),
+		To:       &dad,
+		Gas:      30000,
+		GasPrice: big.NewInt(1),
+		Value:    big.NewInt(50),
+		AccessList: types.AccessList{{
+			Address:     dad,
+			StorageKeys: []common.Hash{{0}},
+		}},
+	})
 
-	if graphqlTx.receiptGetter != nil {
-		t.Fatalf("Expect nil receiptGetter: actual %v", graphqlTx.receiptGetter)
+	// Create some blocks and import them
+	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
+		ethash.NewFaker(), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
+			b.SetCoinbase(common.Address{1})
+			b.AddTx(legacyTx)
+			b.AddTx(envelopTx)
+		})
+
+	_, err = ethBackend.BlockChain().InsertChain(chain)
+	if err != nil {
+		t.Fatalf("could not create import blocks: %v", err)
 	}
-
-	_, _ = graphqlTx.getReceipt(context.Background())
-
-	if graphqlTx.receiptGetter == nil {
-		t.Fatalf("Expect default receiptGetter to have been set: actual nil")
+	// create gql service
+	err = New(stack, ethBackend.APIBackend, []string{}, []string{})
+	if err != nil {
+		t.Fatalf("could not create graphql service: %v", err)
 	}
-
-	if _, ok := graphqlTx.receiptGetter.(*transactionReceiptGetter); !ok {
-		t.Fatalf("Expect default receiptGetter to be of type *graphql.transactionReceiptGetter: actual %T", graphqlTx.receiptGetter)
-	}
-}
-
-type StubBackend struct{}
-
-func (sb *StubBackend) CurrentHeader() *types.Header {
-	panic("implement me")
-}
-
-func (sb *StubBackend) Engine() consensus.Engine {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) CurrentBlock() *types.Block {
-	panic("implement me")
-}
-
-func (sb *StubBackend) Downloader() *downloader.Downloader {
-	panic("implement me")
-}
-
-func (sb *StubBackend) ProtocolVersion() int {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) ChainDb() ethdb.Database {
-	panic("implement me")
-}
-
-func (sb *StubBackend) EventMux() *event.TypeMux {
-	panic("implement me")
-}
-
-func (sb *StubBackend) AccountManager() *accounts.Manager {
-	panic("implement me")
-}
-
-func (sb *StubBackend) ExtRPCEnabled() bool {
-	panic("implement me")
-}
-
-func (sb *StubBackend) CallTimeOut() time.Duration {
-	panic("implement me")
-}
-
-func (sb *StubBackend) RPCTxFeeCap() float64 {
-	panic("implement me")
-}
-
-func (sb *StubBackend) RPCGasCap() uint64 {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SetHead(number uint64) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetTd(ctx context.Context, hash common.Hash) *big.Int {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetPoolTransactions() (types.Transactions, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetPoolTransaction(txHash common.Hash) *types.Transaction {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) Stats() (pending int, queued int) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) BloomStatus() (uint64, uint64) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) ChainConfig() *params.ChainConfig {
-	panic("implement me")
-}
-
-func (sb *StubBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
-	panic("implement me")
-}
-
-func (sb *StubBackend) UnprotectedAllowed() bool {
-	panic("implement me")
 }
