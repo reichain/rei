@@ -605,10 +605,10 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
-			name: 'storageRoot',
-			call: 'eth_storageRoot',
+			name: 'createAccessList',
+			call: 'eth_createAccessList',
 			params: 2,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null]
+			inputFormatter: [null, web3._extend.formatters.inputBlockNumberFormatter],
 		}),
 	],
 	properties: [
