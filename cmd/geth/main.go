@@ -153,6 +153,7 @@ var (
 		utils.EmitCheckpointsFlag,
 		utils.EVMCallTimeOutFlag,
 		// End-Quorum
+		utils.CatalystFlag,
 	}
 
 	rpcFlags = []cli.Flag{
