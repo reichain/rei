@@ -84,6 +84,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210420205809-ac73e9fd8988
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
