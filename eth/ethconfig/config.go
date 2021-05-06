@@ -204,6 +204,8 @@ type Config struct {
 	// Berlin block override (TODO: remove after the fork)
 	OverrideBerlin *big.Int `toml:",omitempty"`
 
+	OverrideLondon *big.Int `toml:",omitempty"`
+
 	// Quorum
 	// timeout value for call
 	EVMCallTimeOut time.Duration
