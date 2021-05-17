@@ -72,6 +72,10 @@ var (
 	// current network configuration.
 	ErrTxTypeNotSupported = types.ErrTxTypeNotSupported
 
+	// ErrFeeCapTooLow is returned if the transaction fee cap is less than the
+	// the base fee of the block.
+	ErrFeeCapTooLow = errors.New("fee cap less than block base fee")
+
 	// Quorum
 	// ErrAbortBlocksProcessing is returned if bc.insertChain is interrupted under raft mode
 	ErrAbortBlocksProcessing = errors.New("abort during blocks processing")
