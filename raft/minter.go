@@ -291,8 +291,9 @@ func (minter *minter) getTransactions() *types.TransactionsByPriceAndNonce {
 		panic(err)
 	}
 	addrTxes := minter.speculativeChain.withoutProposedTxes(allAddrTxes)
-	signer := types.MakeSigner(minter.chain.Config(), minter.chain.CurrentBlock().Number())
-	return types.NewTransactionsByPriceAndNonce(signer, addrTxes)
+	block := minter.chain.CurrentBlock()
+	signer := types.MakeSigner(minter.chain.Config(), block.Number())
+	return types.NewTransactionsByPriceAndNonce(signer, addrTxes, block.BaseFee())
 }
 
 // Sends-off events asynchronously.
