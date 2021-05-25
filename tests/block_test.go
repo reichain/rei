@@ -55,10 +55,10 @@ func TestBlockchain(t *testing.T) {
 	bt.skipLoad(`.*bcUncleSpecialTests/futureUncleTimestampDifficultyDrop\.json`)
 
 	bt.walk(t, blockTestDir, func(t *testing.T, name string, test *BlockTest) {
-		if err := bt.checkFailure(t, name+"/trie", test.Run(false)); err != nil {
+		if err := bt.checkFailure(t, test.Run(false)); err != nil {
 			t.Errorf("test without snapshotter failed: %v", err)
 		}
-		if err := bt.checkFailure(t, name+"/snap", test.Run(true)); err != nil {
+		if err := bt.checkFailure(t, test.Run(true)); err != nil {
 			t.Errorf("test with snapshotter failed: %v", err)
 		}
 	})
