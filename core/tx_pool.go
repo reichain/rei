@@ -88,10 +88,6 @@ var (
 	// ErrEtherValueUnsupported is returned if a transaction specifies an Ether Value
 	// for a private Quorum transaction.
 	ErrEtherValueUnsupported = errors.New("ether value is not supported for private transactions")
-
-	// ErrTipAboveFeeCap is a sanity error to ensure no one is able to specify a
-	// transaction with a tip higher than the total fee cap.
-	ErrTipAboveFeeCap = errors.New("tip higher than fee cap")
 )
 
 var (
@@ -583,6 +579,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Ensure the transaction doesn't exceed the current block limit gas.
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
+	}
+	// Sanity check for extremely large numbers
+	if tx.FeeCap().BitLen() > 256 {
+		return ErrFeeCapVeryHigh
+	}
+	if tx.Tip().BitLen() > 256 {
+		return ErrTipVeryHigh
 	}
 	// Ensure feeCap is less than or equal to tip.
 	if tx.FeeCapIntCmp(tx.Tip()) < 0 {
