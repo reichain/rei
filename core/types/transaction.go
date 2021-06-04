@@ -357,11 +357,12 @@ func (tx *Transaction) EffectiveTipCmp(other *Transaction, baseFee *big.Int) int
 	return tx.EffectiveTipValue(baseFee).Cmp(other.EffectiveTipValue(baseFee))
 }
 
-func (tx *Transaction) From() common.Address {
-	if from, err := Sender(NewEIP2930Signer(tx.ChainId()), tx); err == nil {
-		return from
+// EffectiveTipIntCmp compares the effective tip of a transaction to the given tip.
+func (tx *Transaction) EffectiveTipIntCmp(other *big.Int, baseFee *big.Int) int {
+	if baseFee == nil {
+		return tx.TipIntCmp(other)
 	}
-	return common.Address{}
+	return tx.EffectiveTipValue(baseFee).Cmp(other)
 }
 
 // Hash returns the transaction hash.

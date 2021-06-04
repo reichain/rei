@@ -286,7 +286,7 @@ func (minter *minter) createWork() *work {
 }
 
 func (minter *minter) getTransactions() *types.TransactionsByPriceAndNonce {
-	allAddrTxes, err := minter.eth.TxPool().Pending()
+	allAddrTxes, err := minter.eth.TxPool().Pending(true)
 	if err != nil { // TODO: handle
 		panic(err)
 	}
