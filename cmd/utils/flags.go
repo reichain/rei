@@ -33,6 +33,9 @@ import (
 	"text/template"
 	"time"
 
+	pcsclite "github.com/gballet/go-libpcsclite"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -74,8 +77,6 @@ import (
 	"github.com/ethereum/go-ethereum/plugin"
 	"github.com/ethereum/go-ethereum/private"
 	"github.com/ethereum/go-ethereum/raft"
-	pcsclite "github.com/gballet/go-libpcsclite"
-	"gopkg.in/urfave/cli.v1"
 )
 
 func init() {
@@ -179,10 +180,6 @@ var (
 		Name:  "docroot",
 		Usage: "Document Root for HTTPClient file scheme",
 		Value: DirectoryString(HomeDir()),
-	}
-	ExitWhenSyncedFlag = cli.BoolFlag{
-		Name:  "exitwhensynced",
-		Usage: "Exits after block synchronisation completes",
 	}
 	IterativeOutputFlag = cli.BoolFlag{
 		Name:  "iterative",
@@ -613,7 +610,7 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 30303,
+		Value: 21000,
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -632,10 +629,6 @@ var (
 		Name:  "nat",
 		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
 		Value: "any",
-	}
-	NoDiscoverFlag = cli.BoolFlag{
-		Name:  "nodiscover",
-		Usage: "Disables the peer discovery mechanism (manual peer addition)",
 	}
 	DiscoveryV5Flag = cli.BoolFlag{
 		Name:  "v5disc",
@@ -775,15 +768,6 @@ var (
 		Value: 3162240,
 	}
 	// Raft flags
-	RaftModeFlag = cli.BoolFlag{
-		Name:  "raft",
-		Usage: "If enabled, uses Raft instead of Quorum Chain for consensus",
-	}
-	RaftBlockTimeFlag = cli.IntFlag{
-		Name:  "raftblocktime",
-		Usage: "Amount of time between raft block creations in milliseconds",
-		Value: 50,
-	}
 	RaftJoinExistingFlag = cli.IntFlag{
 		Name:  "raftjoinexisting",
 		Usage: "The raft ID to assume when joining an pre-existing cluster",
@@ -797,7 +781,7 @@ var (
 	RaftPortFlag = cli.IntFlag{
 		Name:  "raftport",
 		Usage: "The port to bind for the raft transport",
-		Value: 50400,
+		Value: 50000,
 	}
 	RaftDNSEnabledFlag = cli.BoolFlag{
 		Name:  "raftdnsenable",
@@ -1372,19 +1356,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
 		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
 	}
-	if ctx.GlobalIsSet(NoDiscoverFlag.Name) || lightClient {
-		cfg.NoDiscovery = true
-	}
-
-	// if we're running a light client or server, force enable the v5 peer discovery
-	// unless it is explicitly disabled with --nodiscover note that explicitly specifying
-	// --v5disc overrides --nodiscover, in which case the later only disables v4 discovery
-	forceV5Discovery := (lightClient || lightServer) && !ctx.GlobalBool(NoDiscoverFlag.Name)
-	if ctx.GlobalIsSet(DiscoveryV5Flag.Name) {
-		cfg.DiscoveryV5 = ctx.GlobalBool(DiscoveryV5Flag.Name)
-	} else if forceV5Discovery {
-		cfg.DiscoveryV5 = true
-	}
+	cfg.NoDiscovery = true
 
 	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
 		list, err := netutil.ParseNetlist(netrestrict)
@@ -1708,7 +1680,7 @@ func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
 }
 
 func setRaft(ctx *cli.Context, cfg *eth.Config) {
-	cfg.RaftMode = ctx.GlobalBool(RaftModeFlag.Name)
+	cfg.RaftMode = true
 }
 
 func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {
@@ -2057,7 +2029,6 @@ func RegisterPermissionService(stack *node.Node, useDns bool) {
 }
 
 func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Config, ethService *eth.Ethereum) {
-	blockTimeMillis := ctx.GlobalInt(RaftBlockTimeFlag.Name)
 	raftLogDir := nodeCfg.RaftLogDir // default value is set either 'datadir' or 'raftlogdir'
 	joinExistingId := ctx.GlobalInt(RaftJoinExistingFlag.Name)
 	useDns := ctx.GlobalBool(RaftDNSEnabledFlag.Name)
@@ -2065,7 +2036,7 @@ func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Confi
 
 	privkey := nodeCfg.NodeKey()
 	strId := enode.PubkeyToIDV4(&privkey.PublicKey).String()
-	blockTimeNanos := time.Duration(blockTimeMillis) * time.Millisecond
+	blockTimeNanos := time.Second
 	peers := nodeCfg.StaticNodes()
 
 	var myId uint16

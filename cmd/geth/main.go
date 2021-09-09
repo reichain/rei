@@ -27,14 +27,15 @@ import (
 	"strings"
 	"time"
 
+	gopsutil "github.com/shirou/gopsutil/mem"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/accounts/pluggable"
 	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
@@ -44,8 +45,6 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/permission"
 	"github.com/ethereum/go-ethereum/plugin"
-	gopsutil "github.com/shirou/gopsutil/mem"
-	"gopkg.in/urfave/cli.v1"
 )
 
 const (
@@ -93,7 +92,6 @@ var (
 		utils.TxPoolGlobalQueueFlag,
 		utils.TxPoolLifetimeFlag,
 		utils.SyncModeFlag,
-		utils.ExitWhenSyncedFlag,
 		utils.GCModeFlag,
 		utils.SnapshotFlag,
 		utils.TxLookupLimitFlag,
@@ -136,7 +134,6 @@ var (
 		utils.MinerRecommitIntervalFlag,
 		utils.MinerNoVerfiyFlag,
 		utils.NATFlag,
-		utils.NoDiscoverFlag,
 		utils.DiscoveryV5Flag,
 		utils.NetrestrictFlag,
 		utils.NodeKeyFileFlag,
@@ -166,8 +163,6 @@ var (
 		utils.PrivateCacheTrieJournalFlag,
 		utils.QuorumImmutabilityThreshold,
 		utils.EnableNodePermissionFlag,
-		utils.RaftModeFlag,
-		utils.RaftBlockTimeFlag,
 		utils.RaftJoinExistingFlag,
 		utils.RaftPortFlag,
 		utils.RaftDNSEnabledFlag,
@@ -406,11 +401,6 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	log.DoEmitCheckpoints = ctx.GlobalBool(utils.EmitCheckpointsFlag.Name)
 	debug.Memsize.Add("node", stack)
 
-	// raft mode does not support --exitwhensynced
-	if ctx.GlobalBool(utils.ExitWhenSyncedFlag.Name) && ctx.GlobalBool(utils.RaftModeFlag.Name) {
-		utils.Fatalf("raft consensus does not support --exitwhensynced")
-	}
-
 	// Start up the node itself
 	utils.StartNode(stack)
 
@@ -475,30 +465,6 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		}
 	}()
 
-	// Spawn a standalone goroutine for status synchronization monitoring,
-	// close the node when synchronization is complete if user required.
-	if ctx.GlobalBool(utils.ExitWhenSyncedFlag.Name) {
-		go func() {
-			sub := stack.EventMux().Subscribe(downloader.DoneEvent{})
-			defer sub.Unsubscribe()
-			for {
-				event := <-sub.Chan()
-				if event == nil {
-					continue
-				}
-				done, ok := event.Data.(downloader.DoneEvent)
-				if !ok {
-					continue
-				}
-				if timestamp := time.Unix(int64(done.Latest.Time), 0); time.Since(timestamp) < 10*time.Minute {
-					log.Info("Synchronisation completed", "latestnum", done.Latest.Number, "latesthash", done.Latest.Hash(),
-						"age", common.PrettyAge(timestamp))
-					stack.Close()
-				}
-			}
-		}()
-	}
-
 	// Quorum
 	//
 	// checking if permissions is enabled and staring the permissions service
@@ -544,7 +510,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	}
 
 	// checks quorum features that depend on the ethereum service
-	quorumValidateEthService(stack, ctx.GlobalBool(utils.RaftModeFlag.Name))
+	quorumValidateEthService(stack, true)
 }
 
 // unlockAccounts unlocks any account specifically requested.

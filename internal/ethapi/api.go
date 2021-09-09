@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/tyler-smith/go-bip39"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -54,7 +56,6 @@ import (
 	"github.com/ethereum/go-ethereum/private/engine"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/tyler-smith/go-bip39"
 )
 
 type TransactionType uint8
@@ -1606,18 +1607,17 @@ func getTransactionReceiptCommonCode(tx *types.Transaction, blockHash common.Has
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
-		"blockHash":                  blockHash,
-		"blockNumber":                hexutil.Uint64(blockNumber),
-		"transactionHash":            hash,
-		"transactionIndex":           hexutil.Uint64(index),
-		"from":                       from,
-		"to":                         tx.To(),
-		"gasUsed":                    hexutil.Uint64(receipt.GasUsed),
-		"cumulativeGasUsed":          hexutil.Uint64(receipt.CumulativeGasUsed),
-		"contractAddress":            nil,
-		"logs":                       receipt.Logs,
-		"logsBloom":                  receipt.Bloom,
-		"isPrivacyMarkerTransaction": tx.IsPrivacyMarker(),
+		"blockHash":         blockHash,
+		"blockNumber":       hexutil.Uint64(blockNumber),
+		"transactionHash":   hash,
+		"transactionIndex":  hexutil.Uint64(index),
+		"from":              from,
+		"to":                tx.To(),
+		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              receipt.Logs,
+		"logsBloom":         receipt.Bloom,
 	}
 
 	// Quorum

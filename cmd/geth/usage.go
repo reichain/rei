@@ -22,10 +22,11 @@ import (
 	"io"
 	"sort"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/internal/flags"
-	cli "gopkg.in/urfave/cli.v1"
 )
 
 // Quorum
@@ -50,7 +51,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.YoloV2Flag,
 			utils.RopstenFlag,
 			utils.SyncModeFlag,
-			utils.ExitWhenSyncedFlag,
 			utils.GCModeFlag,
 			utils.TxLookupLimitFlag,
 			utils.EthStatsURLFlag,
@@ -172,7 +172,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.MaxPeersFlag,
 			utils.MaxPendingPeersFlag,
 			utils.NATFlag,
-			utils.NoDiscoverFlag,
 			utils.DiscoveryV5Flag,
 			utils.NetrestrictFlag,
 			utils.NodeKeyFileFlag,
@@ -289,8 +288,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "RAFT",
 		Flags: []cli.Flag{
-			utils.RaftModeFlag,
-			utils.RaftBlockTimeFlag,
 			utils.RaftJoinExistingFlag,
 			utils.RaftPortFlag,
 			utils.RaftDNSEnabledFlag,

@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -77,7 +78,9 @@ type extraSeal struct {
 	Signature []byte // Signature of the block minter
 }
 
-func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Duration) *minter {
+func newMinter(config *params.ChainConfig, e *eth.Ethereum, eth *RaftService, blockTime time.Duration) *minter {
+	etherbase, _ := e.Etherbase()
+
 	minter := &minter{
 		config:           config,
 		eth:              eth,
@@ -87,6 +90,7 @@ func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Dura
 		shouldMine:       channels.NewRingChannel(1),
 		blockTime:        blockTime,
 		speculativeChain: newSpeculativeChain(),
+		coinbase:         etherbase,
 
 		invalidRaftOrderingChan: make(chan InvalidRaftOrdering, 1),
 		chainHeadChan:           make(chan core.ChainHeadEvent, core.GetChainHeadChannleSize()),
@@ -240,13 +244,14 @@ func (minter *minter) mintingLoop() {
 	}
 }
 
-func generateNanoTimestamp(parent *types.Block) (tstamp int64) {
+func generateTimestamp(parent *types.Block) (tstamp int64) {
 	parentTime := int64(parent.Time())
-	tstamp = time.Now().UnixNano()
+	tstamp = time.Now().Unix()
 
-	if parentTime >= tstamp {
-		// Each successive block needs to be after its predecessor.
-		tstamp = parentTime + 1
+	for parentTime >= tstamp {
+		diff := time.Duration(parentTime*int64(time.Second)-time.Now().UnixNano()) + 1
+		time.Sleep(diff)
+		tstamp = time.Now().Unix()
 	}
 
 	return
@@ -256,7 +261,7 @@ func generateNanoTimestamp(parent *types.Block) (tstamp int64) {
 func (minter *minter) createWork() *work {
 	parent := minter.speculativeChain.head
 	parentNumber := parent.Number()
-	tstamp := generateNanoTimestamp(parent)
+	tstamp := generateTimestamp(parent)
 
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -361,7 +366,7 @@ func (minter *minter) mintNewBlock() {
 
 	minter.mux.Post(core.NewMinedBlockEvent{Block: block})
 
-	elapsed := time.Since(time.Unix(0, int64(header.Time)))
+	elapsed := time.Since(time.Unix(int64(header.Time), 0))
 	log.Info("🔨  Mined block", "number", block.Number(), "hash", fmt.Sprintf("%x", block.Hash().Bytes()[:4]), "elapsed", elapsed)
 }
 

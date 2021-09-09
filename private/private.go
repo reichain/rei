@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	http2 "github.com/ethereum/go-ethereum/common/http"
@@ -54,8 +53,7 @@ func GetLegacyEnvironmentConfig() (http2.Config, error) {
 }
 
 func FromEnvironmentOrNil(name string) (http2.Config, error) {
-	cfgPath := os.Getenv(name)
-	cfg, err := http2.FetchConfigOrIgnore(cfgPath)
+	cfg, err := http2.FetchConfigOrIgnore("ignore")
 	if err != nil {
 		return http2.Config{}, err
 	}

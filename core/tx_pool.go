@@ -571,10 +571,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 			}
 		}
 
-		// Gas price must be zero for Quorum transaction
-		if tx.GasPriceIntCmp(common.Big0) != 0 {
-			return ErrInvalidGasPrice
-		}
 		// Ether value is not currently supported on private transactions
 		if tx.IsPrivate() && (len(tx.Data()) == 0 || tx.Value().Sign() != 0) {
 			return ErrEtherValueUnsupported
@@ -583,13 +579,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if err := pcore.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
 			return err
 		}
-	} else {
-		// Drop non-local transactions under our own minimal accepted gas price
-		local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-		if !local && tx.GasPriceIntCmp(pool.gasPrice) < 0 {
-			return ErrUnderpriced
-		}
 	}
+
+	// Drop non-local transactions under our own minimal accepted gas price
+	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
+	if !local && tx.GasPriceIntCmp(pool.gasPrice) < 0 {
+		return ErrUnderpriced
+	}
+
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
@@ -634,7 +631,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
 		// If the new transaction is underpriced, don't accept it
-		if !pool.chainconfig.IsQuorum && !local && pool.priced.Underpriced(tx, pool.locals) {
+		if !local && pool.priced.Underpriced(tx, pool.locals) {
 			log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 			underpricedTxMeter.Mark(1)
 			return false, ErrUnderpriced
@@ -1256,18 +1253,16 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 			hash := tx.Hash()
 			pool.all.Remove(hash)
 		}
-		var drops types.Transactions
-		if !isQuorum {
-			log.Trace("Removed old queued transactions", "count", len(forwards))
-			// Drop all transactions that are too costly (low balance or out of gas)
-			drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
-			for _, tx := range drops {
-				hash := tx.Hash()
-				pool.all.Remove(hash)
-			}
-			log.Trace("Removed unpayable queued transactions", "count", len(drops))
-			queuedNofundsMeter.Mark(int64(len(drops)))
+
+		log.Trace("Removed old queued transactions", "count", len(forwards))
+		// Drop all transactions that are too costly (low balance or out of gas)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		for _, tx := range drops {
+			hash := tx.Hash()
+			pool.all.Remove(hash)
 		}
+		log.Trace("Removed unpayable queued transactions", "count", len(drops))
+		queuedNofundsMeter.Mark(int64(len(drops)))
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))

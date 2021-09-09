@@ -27,11 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/node"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/urfave/cli.v1"
+
+	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/node"
 )
 
 func TestPrivateTrieCache(t *testing.T) {
@@ -184,8 +185,6 @@ func TestQuorumConfigFlags(t *testing.T) {
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(IstanbulRequestTimeoutFlag.Name, "23"))
 	fs.Uint64(IstanbulBlockPeriodFlag.Name, 0, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(IstanbulBlockPeriodFlag.Name, "34"))
-	fs.Bool(RaftModeFlag.Name, false, "")
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(RaftModeFlag.Name, "true"))
 	fs.String(PrivateCacheTrieJournalFlag.Name, "", "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(PrivateCacheTrieJournalFlag.Name, "myprivatetriecache"))
 
@@ -193,7 +192,6 @@ func TestQuorumConfigFlags(t *testing.T) {
 
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(EVMCallTimeOutFlag.Name), "EVMCallTimeOutFlag not set")
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(MultitenancyFlag.Name), "MultitenancyFlag not set")
-	assert.True(t, arbitraryCLIContext.GlobalIsSet(RaftModeFlag.Name), "RaftModeFlag not set")
 
 	assert.Equal(t, 12*time.Second, arbitraryEthConfig.EVMCallTimeOut, "EVMCallTimeOut value is incorrect")
 	assert.Equal(t, true, arbitraryEthConfig.EnableMultitenancy, "MultitenancyFlag value is incorrect")

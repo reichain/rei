@@ -24,6 +24,9 @@ import (
 	"reflect"
 	"unicode"
 
+	"github.com/naoina/toml"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/common/http"
 	"github.com/ethereum/go-ethereum/eth"
@@ -34,8 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/private"
 	"github.com/ethereum/go-ethereum/private/engine"
-	"github.com/naoina/toml"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -190,13 +191,8 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		utils.RegisterPermissionService(stack, ctx.Bool(utils.RaftDNSEnabledFlag.Name))
 	}
 
-	if ctx.GlobalBool(utils.RaftModeFlag.Name) {
-		utils.RegisterRaftService(stack, ctx, &cfg.Node, ethService)
-	}
+	utils.RegisterRaftService(stack, ctx, &cfg.Node, ethService)
 
-	if private.IsQuorumPrivacyEnabled() {
-		utils.RegisterExtensionService(stack, ethService)
-	}
 	// End Quorum
 
 	checkWhisper(ctx)
