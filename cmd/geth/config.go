@@ -172,7 +172,7 @@ func checkWhisper(ctx *cli.Context) {
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
 
-	//Must occur before registering the extension service, as it needs an initialised PTM to be enabled
+	// Must occur before registering the extension service, as it needs an initialised PTM to be enabled
 	if err := quorumInitialisePrivacy(ctx); err != nil {
 		utils.Fatalf("Error initialising Private Transaction Manager: %s", err.Error())
 	}
@@ -191,7 +191,9 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		utils.RegisterPermissionService(stack, ctx.Bool(utils.RaftDNSEnabledFlag.Name))
 	}
 
-	utils.RegisterRaftService(stack, ctx, &cfg.Node, ethService)
+	if ctx.GlobalBool(utils.RaftModeFlag.Name) {
+		utils.RegisterRaftService(stack, ctx, &cfg.Node, ethService)
+	}
 
 	// End Quorum
 

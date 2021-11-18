@@ -143,7 +143,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	}
 
 	if !rawdb.GetIsQuorumEIP155Activated(chainDb) && chainConfig.ChainID != nil {
-		//Upon starting the node, write the flag to disallow changing ChainID/EIP155 block after HF
+		// Upon starting the node, write the flag to disallow changing ChainID/EIP155 block after HF
 		rawdb.WriteQuorumEIP155Activation(chainDb)
 	}
 
@@ -251,7 +251,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, config.RaftMode); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, config.RaftMode, eth.p2pServer.Sentry); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -302,7 +302,7 @@ func makeExtraData(extra []byte, isQuorum bool) []byte {
 func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
-		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
+		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
 		return clique.New(chainConfig.Clique, db)
 	}
 	// If Istanbul is requested, set it up
@@ -312,7 +312,7 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 		}
 		config.Istanbul.ProposerPolicy = istanbul.NewProposerPolicy(istanbul.ProposerPolicyId(chainConfig.Istanbul.ProposerPolicy))
 		config.Istanbul.Ceil2Nby3Block = chainConfig.Istanbul.Ceil2Nby3Block
-		config.Istanbul.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime //Quorum
+		config.Istanbul.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
 		config.Istanbul.TestQBFTBlock = chainConfig.Istanbul.TestQBFTBlock
 
 		return istanbulBackend.New(&config.Istanbul, stack.GetNodeKey(), db)

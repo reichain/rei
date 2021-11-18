@@ -610,7 +610,7 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 21000,
+		Value: 30303,
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -768,6 +768,10 @@ var (
 		Value: 3162240,
 	}
 	// Raft flags
+	RaftModeFlag = cli.BoolFlag{
+		Name:  "raft",
+		Usage: "If enabled, uses Raft instead of Quorum Chain for consensus",
+	}
 	RaftJoinExistingFlag = cli.IntFlag{
 		Name:  "raftjoinexisting",
 		Usage: "The raft ID to assume when joining an pre-existing cluster",
@@ -1642,7 +1646,7 @@ func setMiner(ctx *cli.Context, cfg *miner.Config) {
 		cfg.Noverify = ctx.GlobalBool(MinerNoVerfiyFlag.Name)
 	}
 	if ctx.GlobalIsSet(AllowedFutureBlockTimeFlag.Name) {
-		cfg.AllowedFutureBlockTime = ctx.GlobalUint64(AllowedFutureBlockTimeFlag.Name) //Quorum
+		cfg.AllowedFutureBlockTime = ctx.GlobalUint64(AllowedFutureBlockTimeFlag.Name) // Quorum
 	}
 }
 
@@ -1680,7 +1684,7 @@ func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
 }
 
 func setRaft(ctx *cli.Context, cfg *eth.Config) {
-	cfg.RaftMode = true
+	cfg.RaftMode = ctx.GlobalBool(RaftModeFlag.Name)
 }
 
 func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {

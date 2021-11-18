@@ -160,6 +160,8 @@ type Config struct {
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
 
+	Sentry bool
+
 	clock mclock.Clock
 }
 
@@ -974,13 +976,13 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 
 	// If raft is running, check if the dialing node is in the raft cluster
 	// Node doesn't belong to raft cluster is not allowed to join the p2p network
-	if srv.checkPeerInRaft != nil && !srv.checkPeerInRaft(c.node) {
+	if !srv.Sentry && srv.checkPeerInRaft != nil && !srv.checkPeerInRaft(c.node) {
 		node := c.node.ID().String()
 		log.Trace("incoming connection peer is not in the raft cluster", "enode.id", node)
 		return newPeerError(errNotInRaftCluster, "id=%s…%s", node[:4], node[len(node)-4:])
 	}
 
-	//START - QUORUM Permissioning
+	// START - QUORUM Permissioning
 	currentNode := srv.NodeInfo().ID
 	cnodeName := srv.NodeInfo().Name
 	clog.Trace("Quorum permissioning",
@@ -1015,7 +1017,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		clog.Trace("Node Permissioning is Disabled.")
 	}
 
-	//END - QUORUM Permissioning
+	// END - QUORUM Permissioning
 
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {

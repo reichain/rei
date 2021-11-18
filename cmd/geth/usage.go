@@ -288,6 +288,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "RAFT",
 		Flags: []cli.Flag{
+			utils.RaftModeFlag,
 			utils.RaftJoinExistingFlag,
 			utils.RaftPortFlag,
 			utils.RaftDNSEnabledFlag,

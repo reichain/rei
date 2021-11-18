@@ -163,6 +163,7 @@ var (
 		utils.PrivateCacheTrieJournalFlag,
 		utils.QuorumImmutabilityThreshold,
 		utils.EnableNodePermissionFlag,
+		utils.RaftModeFlag,
 		utils.RaftJoinExistingFlag,
 		utils.RaftPortFlag,
 		utils.RaftDNSEnabledFlag,

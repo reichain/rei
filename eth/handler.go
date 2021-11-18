@@ -101,6 +101,7 @@ type ProtocolManager struct {
 	// Quorum
 	raftMode bool
 	engine   consensus.Engine
+	sentry   bool
 
 	// Test fields or hooks
 	broadcastTxAnnouncesOnly bool // Testing field, disable transaction propagation
@@ -108,7 +109,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, raftMode bool) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, raftMode bool, sentry bool) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:  networkID,
@@ -123,6 +124,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		quitSync:   make(chan struct{}),
 		raftMode:   raftMode,
 		engine:     engine,
+		sentry:     sentry,
 	}
 
 	// Quorum
@@ -276,12 +278,13 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.txBroadcastLoop()
 
 	// Quorum
-	if !pm.raftMode {
+	if !pm.raftMode || (pm.raftMode && pm.sentry) {
 		// broadcast mined blocks
 		pm.wg.Add(1)
 		pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 		go pm.minedBroadcastLoop()
-	} else {
+	}
+	if pm.raftMode {
 		// We set this immediately in raft mode to make sure the miner never drops
 		// incoming txes. Raft mode doesn't use the fetcher or downloader, and so
 		// this would never be set otherwise.
@@ -297,7 +300,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
-	if !pm.raftMode {
+	if !pm.raftMode || (pm.raftMode && pm.sentry) {
 		pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	}
 
