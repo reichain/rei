@@ -777,6 +777,10 @@ var (
 		Usage: "The raft ID to assume when joining an pre-existing cluster",
 		Value: 0,
 	}
+	SentryModeFlag = cli.BoolFlag{
+		Name:  "sentry",
+		Usage: "If enabled, allow not in raft peer to connect to p2p",
+	}
 
 	EmitCheckpointsFlag = cli.BoolFlag{
 		Name:  "emitcheckpoints",
@@ -1376,6 +1380,10 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.ListenAddr = ":0"
 		cfg.NoDiscovery = true
 		cfg.DiscoveryV5 = false
+	}
+
+	if ctx.GlobalBool(SentryModeFlag.Name) {
+		cfg.Sentry = true
 	}
 }
 

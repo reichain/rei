@@ -167,6 +167,7 @@ var (
 		utils.RaftJoinExistingFlag,
 		utils.RaftPortFlag,
 		utils.RaftDNSEnabledFlag,
+		utils.SentryModeFlag,
 		utils.EmitCheckpointsFlag,
 		utils.IstanbulRequestTimeoutFlag,
 		utils.IstanbulBlockPeriodFlag,

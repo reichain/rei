@@ -292,6 +292,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.RaftJoinExistingFlag,
 			utils.RaftPortFlag,
 			utils.RaftDNSEnabledFlag,
+			utils.SentryModeFlag,
 		},
 	},
 	{
