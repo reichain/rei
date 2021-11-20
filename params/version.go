@@ -29,6 +29,10 @@ const (
 	QuorumVersionMajor = 21
 	QuorumVersionMinor = 7
 	QuorumVersionPatch = 1
+
+	ReiVersionMajor = 0
+	ReiVersionMinor = 0
+	ReiVersionPatch = 3
 )
 
 // Version holds the textual version string.
@@ -48,6 +52,10 @@ var VersionWithMeta = func() string {
 // Version holds the textual version string.
 var QuorumVersion = func() string {
 	return fmt.Sprintf("%d.%d.%d", QuorumVersionMajor, QuorumVersionMinor, QuorumVersionPatch)
+}()
+
+var ReiVersion = func() string {
+	return fmt.Sprintf("%d.%d.%d", ReiVersionMajor, ReiVersionMinor, ReiVersionPatch)
 }()
 
 // ArchiveVersion holds the textual version string used for Geth archives.
@@ -73,7 +81,7 @@ func VersionWithCommit(gitCommit, gitDate string) string {
 		vsn += "-" + gitDate
 	}
 
-	vsn += "(quorum-v" + QuorumVersion + ")"
+	vsn += "(rei-v" + ReiVersion + ")"
 
 	return vsn
 }
