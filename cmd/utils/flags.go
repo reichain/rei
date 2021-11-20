@@ -1393,6 +1393,14 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	if ctx.GlobalBool(SentryModeFlag.Name) {
 		cfg.Sentry = true
 	}
+
+	if !ctx.GlobalIsSet(RaftModeFlag.Name) && len(cfg.StaticNodes) == 0 {
+		if ctx.GlobalIsSet(ReiMainnetFlag.Name) {
+			setReiMainnetDefaultPeers(ctx, cfg)
+		} else if ctx.GlobalIsSet(ReiTestnetFlag.Name) {
+			setReiTestnetDefaultPeers(ctx, cfg)
+		}
+	}
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
@@ -2325,4 +2333,16 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 		}
 		return action(ctx)
 	}
+}
+
+func setReiMainnetDefaultPeers(ctx *cli.Context, cfg *p2p.Config) {
+	cfg.StaticNodes = append(cfg.StaticNodes,
+		enode.MustParse("enode://c0b1b09cf64be2a8d2fb18c2f7d02031915769cc00ef1dc3298834527f5ad2b03c0dce1a439617f8afdfe0c005e5d13f46eeb24c1779eb2a85e87bf49d872e6b@34.124.237.65:30303"),
+	)
+}
+
+func setReiTestnetDefaultPeers(ctx *cli.Context, cfg *p2p.Config) {
+	cfg.StaticNodes = append(cfg.StaticNodes,
+		enode.MustParse("enode://8fece8dfa7a32bf50b0d8136c1d6b18e0547721a33e270696762c7df125c0532f60b64c049122e4aa351410e2ee4e449b76dedf679078fd81bfad3e64145a7e5@34.87.147.60:30303"),
+	)
 }
