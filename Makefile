@@ -12,6 +12,10 @@ GOBIN = ./build/bin
 GO ?= latest
 GORUN = env GO111MODULE=on go run
 
+rei:
+	$(GORUN) build/ci.go install ./cmd/geth
+	cp $(GOBIN)/geth $(GOPATH)/bin/rei
+
 geth:
 	$(GORUN) build/ci.go install ./cmd/geth
 	@echo "Done building."
@@ -31,7 +35,7 @@ android:
 	@echo "Import \"$(GOBIN)/geth.aar\" to use the library."
 	@echo "Import \"$(GOBIN)/geth-sources.jar\" to add javadocs"
 	@echo "For more info see https://stackoverflow.com/questions/20994336/android-studio-how-to-attach-javadoc"
-	
+
 ios:
 	$(GORUN) build/ci.go xcode --local
 	@echo "Done building."
