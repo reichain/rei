@@ -25,6 +25,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -59,6 +60,8 @@ type ProtocolManager struct {
 	// P2P transport
 	p2pServer *p2p.Server
 	useDns    bool
+
+	ethProtocolManager *eth.ProtocolManager
 
 	// Blockchain services
 	blockchain *core.BlockChain
@@ -99,7 +102,7 @@ var errNoLeaderElected = errors.New("no leader is currently elected")
 // Public interface
 //
 
-func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockChain, mux *event.TypeMux, bootstrapNodes []*enode.Node, joinExisting bool, raftLogDir string, minter *minter, downloader *downloader.Downloader, useDns bool, p2pServer *p2p.Server) (*ProtocolManager, error) {
+func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockChain, mux *event.TypeMux, bootstrapNodes []*enode.Node, joinExisting bool, raftLogDir string, minter *minter, downloader *downloader.Downloader, useDns bool, p2pServer *p2p.Server, ethProtocolManager *eth.ProtocolManager) (*ProtocolManager, error) {
 	waldir := fmt.Sprintf("%s/raft-wal", raftLogDir)
 	snapdir := fmt.Sprintf("%s/raft-snap", raftLogDir)
 	quorumRaftDbLoc := fmt.Sprintf("%s/quorum-raft-state", raftLogDir)
@@ -127,6 +130,7 @@ func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockCh
 		downloader:          downloader,
 		useDns:              useDns,
 		p2pServer:           p2pServer,
+		ethProtocolManager:  ethProtocolManager,
 	}
 
 	if db, err := openQuorumRaftDb(quorumRaftDbLoc); err != nil {
@@ -776,10 +780,10 @@ func (pm *ProtocolManager) entriesToApply(allEntries []raftpb.Entry) (entriesToA
 func (pm *ProtocolManager) raftUrl(address *Address) string {
 	if parsedIp := net.ParseIP(address.Hostname); parsedIp != nil {
 		if ipv4 := parsedIp.To4(); ipv4 != nil {
-			//this is an IPv4 address
+			// this is an IPv4 address
 			return fmt.Sprintf("http://%s:%d", ipv4, address.RaftPort)
 		}
-		//this is an IPv6 address
+		// this is an IPv6 address
 		return fmt.Sprintf("http://[%s]:%d", parsedIp, address.RaftPort)
 	}
 	return fmt.Sprintf("http://%s:%d", address.Hostname, address.RaftPort)
@@ -791,7 +795,7 @@ func (pm *ProtocolManager) addPeer(address *Address) {
 
 	raftId := address.RaftId
 
-	//Quorum - RAFT - derive pubkey from nodeId
+	// Quorum - RAFT - derive pubkey from nodeId
 	pubKey, err := enode.HexPubkey(address.NodeId.String())
 	if err != nil {
 		log.Error("error decoding pub key from enodeId", "enodeId", address.NodeId.String(), "err", err)
@@ -921,11 +925,11 @@ func (pm *ProtocolManager) eventLoop() {
 							forceSnapshot = true
 						} else { // add peer or add learner or promote learner to voter
 							forceSnapshot = true
-							//if raft id exists as peer, you are promoting learner to peer
+							// if raft id exists as peer, you are promoting learner to peer
 							if pm.isRaftIdUsed(raftId) {
 								log.Info("promote learner node to voter node", "raft id", raftId)
 							} else {
-								//if raft id does not exist, you are adding peer/learner
+								// if raft id does not exist, you are adding peer/learner
 								log.Info("add peer/learner -> "+confChangeTypeName, "raft id", raftId)
 								pm.addPeer(bytesToAddress(cc.Context))
 							}
@@ -1048,6 +1052,7 @@ func (pm *ProtocolManager) applyNewChainHead(block *types.Block) bool {
 			panic(fmt.Sprintf("failed to extend chain: %s", err.Error()))
 		}
 
+		go pm.ethProtocolManager.BroadcastBlock(block, false)
 		log.EmitCheckpoint(log.BlockCreated, "block", fmt.Sprintf("%x", block.Hash()))
 	}
 	return true

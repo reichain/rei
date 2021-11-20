@@ -656,3 +656,8 @@ func (s *Ethereum) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscripti
 	}
 	return s.miner.SubscribePendingLogs(ch)
 }
+
+// Rei
+func (s *Ethereum) ProtocolManager() *ProtocolManager {
+	return s.protocolManager
+}
