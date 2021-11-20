@@ -32,7 +32,7 @@ const (
 
 	ReiVersionMajor = 0
 	ReiVersionMinor = 0
-	ReiVersionPatch = 3
+	ReiVersionPatch = 4
 )
 
 // Version holds the textual version string.
