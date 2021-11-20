@@ -23,6 +23,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -41,7 +43,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	pcore "github.com/ethereum/go-ethereum/permission/core"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
@@ -113,17 +114,7 @@ func (b *EthAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*ty
 }
 
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
-	// Pending block is only known by the miner
-	if number == rpc.PendingBlockNumber {
-		if b.eth.protocolManager.raftMode {
-			// Use latest instead.
-			return b.eth.blockchain.CurrentBlock(), nil
-		}
-		block := b.eth.miner.PendingBlock()
-		return block, nil
-	}
-	// Otherwise resolve and return the block
-	if number == rpc.LatestBlockNumber {
+	if number == rpc.PendingBlockNumber || number == rpc.LatestBlockNumber {
 		return b.eth.blockchain.CurrentBlock(), nil
 	}
 	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
@@ -161,18 +152,14 @@ func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, number rpc.B
 	}
 	// Pending state is only known by the miner
 	if number == rpc.PendingBlockNumber {
-		// Quorum
-		if b.eth.protocolManager.raftMode {
-			// Use latest instead.
-			header, err := b.HeaderByNumber(ctx, rpc.LatestBlockNumber)
-			if header == nil || err != nil {
-				return nil, nil, err
-			}
-			publicState, privateState, err := b.eth.BlockChain().StateAtPSI(header.Root, psm.ID)
-			return EthAPIState{publicState, privateState}, header, err
+		// Rei
+		// Use latest instead.
+		header, err := b.HeaderByNumber(ctx, rpc.LatestBlockNumber)
+		if header == nil || err != nil {
+			return nil, nil, err
 		}
-		block, publicState, privateState := b.eth.miner.Pending(psm.ID)
-		return EthAPIState{publicState, privateState}, block.Header(), nil
+		publicState, privateState, err := b.eth.BlockChain().StateAtPSI(header.Root, psm.ID)
+		return EthAPIState{publicState, privateState}, header, err
 	}
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, number)
@@ -576,4 +563,4 @@ func (s EthAPIState) GetCodeHash(addr common.Address) common.Hash {
 	return s.state.GetCodeHash(addr)
 }
 
-//func (s MinimalApiState) Error
+// func (s MinimalApiState) Error
