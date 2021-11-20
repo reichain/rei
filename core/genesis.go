@@ -454,6 +454,62 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	}
 }
 
+func DefaultReiMainnetGenesisBlock() *Genesis {
+	return &Genesis{
+		Alloc: GenesisAlloc{
+			common.HexToAddress("0x770b89601B08521d8b6E0DEF22dFAEA8c6025AC7"): {
+				Balance: hexutil.MustDecodeBig("0x52b7d2dcc80cd2e4000000"),
+			},
+		},
+		Config: &params.ChainConfig{
+			ChainID:             big.NewInt(55555),
+			HomesteadBlock:      big.NewInt(0),
+			ByzantiumBlock:      big.NewInt(0),
+			ConstantinopleBlock: big.NewInt(0),
+			PetersburgBlock:     big.NewInt(0),
+			IstanbulBlock:       big.NewInt(0),
+			MuirGlacierBlock:    big.NewInt(0),
+			EIP150Block:         big.NewInt(0),
+			EIP150Hash:          common.Hash{},
+			EIP155Block:         big.NewInt(0),
+			EIP158Block:         big.NewInt(0),
+			IsQuorum:            true,
+		},
+		Difficulty: big.NewInt(0),
+		ExtraData:  hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		GasLimit:   hexutil.MustDecodeUint64("0xE0000000"),
+		Mixhash:    common.HexToHash("0x00000000000000000000000000000000000000647572616c65787365646c6578"),
+	}
+}
+
+func DefaultReiTestnetGenesisBlock() *Genesis {
+	return &Genesis{
+		Alloc: GenesisAlloc{
+			common.HexToAddress("0xB3D3378B3C6e533529aAFed535F0CDdbC859b207"): {
+				Balance: hexutil.MustDecodeBig("0x52b7d2dcc80cd2e4000000"),
+			},
+		},
+		Config: &params.ChainConfig{
+			ChainID:             big.NewInt(55556),
+			HomesteadBlock:      big.NewInt(0),
+			ByzantiumBlock:      big.NewInt(0),
+			ConstantinopleBlock: big.NewInt(0),
+			PetersburgBlock:     big.NewInt(0),
+			IstanbulBlock:       big.NewInt(0),
+			MuirGlacierBlock:    big.NewInt(0),
+			EIP150Block:         big.NewInt(0),
+			EIP150Hash:          common.Hash{},
+			EIP155Block:         big.NewInt(0),
+			EIP158Block:         big.NewInt(0),
+			IsQuorum:            true,
+		},
+		Difficulty: big.NewInt(0),
+		ExtraData:  hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		GasLimit:   hexutil.MustDecodeUint64("0xE0000000"),
+		Mixhash:    common.HexToHash("0x00000000000000000000000000000000000000647572616c65787365646c6578"),
+	}
+}
+
 func decodePrealloc(data string) GenesisAlloc {
 	var p []struct{ Addr, Balance *big.Int }
 	if err := rlp.NewStream(strings.NewReader(data), 0).Decode(&p); err != nil {

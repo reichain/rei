@@ -148,6 +148,8 @@ var (
 		utils.YoloV2Flag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
+		utils.ReiMainnetFlag,
+		utils.ReiTestnetFlag,
 		utils.EthStatsURLFlag,
 		utils.FakePoWFlag,
 		utils.NoCompactionFlag,
