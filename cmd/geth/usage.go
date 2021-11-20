@@ -46,12 +46,8 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.NoUSBFlag,
 			utils.SmartCardDaemonPathFlag,
 			utils.NetworkIdFlag,
-			utils.ReiMainnetFlag,
-			utils.ReiTestnetFlag,
-			utils.GoerliFlag,
-			utils.RinkebyFlag,
-			utils.YoloV2Flag,
-			utils.RopstenFlag,
+			utils.MainnetFlag,
+			utils.TestnetFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
 			utils.TxLookupLimitFlag,
@@ -74,13 +70,13 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.LightNoPruneFlag,
 		},
 	},
-	{
-		Name: "DEVELOPER CHAIN",
-		Flags: []cli.Flag{
-			utils.DeveloperFlag,
-			utils.DeveloperPeriodFlag,
-		},
-	},
+	// {
+	// 	Name: "DEVELOPER CHAIN",
+	// 	Flags: []cli.Flag{
+	// 		utils.DeveloperFlag,
+	// 		utils.DeveloperPeriodFlag,
+	// 	},
+	// },
 	{
 		Name: "ETHASH",
 		Flags: []cli.Flag{

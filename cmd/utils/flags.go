@@ -143,42 +143,18 @@ var (
 		Usage: "Path to the smartcard daemon (pcscd) socket file",
 		Value: pcsclite.PCSCDSockName,
 	}
-	ReiMainnetFlag = cli.BoolFlag{
-		Name:  "reimainnet",
+	MainnetFlag = cli.BoolFlag{
+		Name:  "mainnet",
 		Usage: "Rei Mainnet network",
 	}
-	ReiTestnetFlag = cli.BoolFlag{
-		Name:  "reitestnet",
+	TestnetFlag = cli.BoolFlag{
+		Name:  "testnet",
 		Usage: "Rei Testnet network",
 	}
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
 		Usage: "Explicitly set network id (integer)(For testnets: use --ropsten, --rinkeby, --goerli instead)",
 		Value: eth.DefaultConfig.NetworkId,
-	}
-	GoerliFlag = cli.BoolFlag{
-		Name:  "goerli",
-		Usage: "Görli network: pre-configured proof-of-authority test network",
-	}
-	YoloV2Flag = cli.BoolFlag{
-		Name:  "yolov2",
-		Usage: "YOLOv2 network: pre-configured proof-of-authority shortlived test network.",
-	}
-	RinkebyFlag = cli.BoolFlag{
-		Name:  "rinkeby",
-		Usage: "Rinkeby network: pre-configured proof-of-authority test network",
-	}
-	RopstenFlag = cli.BoolFlag{
-		Name:  "ropsten",
-		Usage: "Ropsten network: pre-configured proof-of-work test network",
-	}
-	DeveloperFlag = cli.BoolFlag{
-		Name:  "dev",
-		Usage: "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
-	}
-	DeveloperPeriodFlag = cli.IntFlag{
-		Name:  "dev.period",
-		Usage: "Block period to use in developer mode (0 = mine only if transaction pending)",
 	}
 	IdentityFlag = cli.StringFlag{
 		Name:  "identity",
@@ -932,24 +908,6 @@ var (
 // then a subdirectory of the specified datadir will be used.
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
-		if ctx.GlobalBool(LegacyTestnetFlag.Name) || ctx.GlobalBool(RopstenFlag.Name) {
-			// Maintain compatibility with older Geth configurations storing the
-			// Ropsten database in `testnet` instead of `ropsten`.
-			legacyPath := filepath.Join(path, "testnet")
-			if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-				return legacyPath
-			}
-			return filepath.Join(path, "ropsten")
-		}
-		if ctx.GlobalBool(RinkebyFlag.Name) {
-			return filepath.Join(path, "rinkeby")
-		}
-		if ctx.GlobalBool(GoerliFlag.Name) {
-			return filepath.Join(path, "goerli")
-		}
-		if ctx.GlobalBool(YoloV2Flag.Name) {
-			return filepath.Join(path, "yolo-v2")
-		}
 		return path
 	}
 	Fatalf("Cannot determine default data directory, please set manually (--datadir)")
@@ -1000,14 +958,10 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		} else {
 			urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
 		}
-	case ctx.GlobalBool(LegacyTestnetFlag.Name) || ctx.GlobalBool(RopstenFlag.Name):
-		urls = params.RopstenBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case ctx.GlobalBool(GoerliFlag.Name):
-		urls = params.GoerliBootnodes
-	case ctx.GlobalBool(YoloV2Flag.Name):
-		urls = params.YoloV2Bootnodes
+	case ctx.GlobalBool(MainnetFlag.Name):
+		// TODO(acoshift): maybe add default bootnode if we supported
+	case ctx.GlobalBool(TestnetFlag.Name):
+		// TODO(acoshift): maybe add default bootnode if we supported
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1036,14 +990,10 @@ func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
 		} else {
 			urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
 		}
-	case ctx.GlobalBool(RopstenFlag.Name):
-		urls = params.RopstenBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case ctx.GlobalBool(GoerliFlag.Name):
-		urls = params.GoerliBootnodes
-	case ctx.GlobalBool(YoloV2Flag.Name):
-		urls = params.YoloV2Bootnodes
+	case ctx.GlobalBool(MainnetFlag.Name):
+		// TODO(acoshift): maybe add default bootnode if we supported
+	case ctx.GlobalBool(TestnetFlag.Name):
+		// TODO(acoshift): maybe add default bootnode if we supported
 	case cfg.BootstrapNodesV5 != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1382,22 +1332,22 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NetRestrict = list
 	}
 
-	if ctx.GlobalBool(DeveloperFlag.Name) {
-		// --dev mode can't use p2p networking.
-		cfg.MaxPeers = 0
-		cfg.ListenAddr = ":0"
-		cfg.NoDiscovery = true
-		cfg.DiscoveryV5 = false
-	}
+	// if ctx.GlobalBool(DeveloperFlag.Name) {
+	// 	// --dev mode can't use p2p networking.
+	// 	cfg.MaxPeers = 0
+	// 	cfg.ListenAddr = ":0"
+	// 	cfg.NoDiscovery = true
+	// 	cfg.DiscoveryV5 = false
+	// }
 
 	if ctx.GlobalBool(SentryModeFlag.Name) {
 		cfg.Sentry = true
 	}
 
 	if !ctx.GlobalIsSet(RaftModeFlag.Name) && len(cfg.StaticNodes) == 0 {
-		if ctx.GlobalIsSet(ReiMainnetFlag.Name) {
+		if ctx.GlobalIsSet(MainnetFlag.Name) {
 			setReiMainnetDefaultPeers(ctx, cfg)
-		} else if ctx.GlobalIsSet(ReiTestnetFlag.Name) {
+		} else if ctx.GlobalIsSet(TestnetFlag.Name) {
 			setReiTestnetDefaultPeers(ctx, cfg)
 		}
 	}
@@ -1465,24 +1415,8 @@ func setDataDir(ctx *cli.Context, cfg *node.Config) {
 	switch {
 	case ctx.GlobalIsSet(DataDirFlag.Name):
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
-	case ctx.GlobalBool(DeveloperFlag.Name):
-		cfg.DataDir = "" // unless explicitly requested, use memory databases
-	case (ctx.GlobalBool(LegacyTestnetFlag.Name) || ctx.GlobalBool(RopstenFlag.Name)) && cfg.DataDir == node.DefaultDataDir():
-		// Maintain compatibility with older Geth configurations storing the
-		// Ropsten database in `testnet` instead of `ropsten`.
-		legacyPath := filepath.Join(node.DefaultDataDir(), "testnet")
-		if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-			log.Warn("Using the deprecated `testnet` datadir. Future versions will store the Ropsten chain in `ropsten`.")
-			cfg.DataDir = legacyPath
-		} else {
-			cfg.DataDir = filepath.Join(node.DefaultDataDir(), "ropsten")
-		}
-	case ctx.GlobalBool(RinkebyFlag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
-	case ctx.GlobalBool(GoerliFlag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "goerli")
-	case ctx.GlobalBool(YoloV2Flag.Name) && cfg.DataDir == node.DefaultDataDir():
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "yolo-v2")
+		// case ctx.GlobalBool(DeveloperFlag.Name):
+		// 	cfg.DataDir = "" // unless explicitly requested, use memory databases
 	}
 	if err := SetPlugins(ctx, cfg); err != nil {
 		Fatalf(err.Error())
@@ -1782,9 +1716,9 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, DeveloperFlag, LegacyTestnetFlag, RopstenFlag, RinkebyFlag, GoerliFlag, YoloV2Flag, ReiMainnetFlag, ReiTestnetFlag)
+	CheckExclusive(ctx /* , DeveloperFlag */, MainnetFlag, TestnetFlag)
 	CheckExclusive(ctx, LegacyLightServFlag, LightServeFlag, SyncModeFlag, "light")
-	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
+	// CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	CheckExclusive(ctx, GCModeFlag, "archive", TxLookupLimitFlag)
 	// todo(rjl493456442) make it available for les server
 	// Ancient tx indices pruning is not available for les server now
@@ -1893,82 +1827,59 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 
 	// Override any default configs for hard coded networks.
 	switch {
-	case ctx.GlobalBool(LegacyTestnetFlag.Name) || ctx.GlobalBool(RopstenFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 3
-		}
-		cfg.Genesis = core.DefaultRopstenGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 4
-		}
-		cfg.Genesis = core.DefaultRinkebyGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
-	case ctx.GlobalBool(GoerliFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 5
-		}
-		cfg.Genesis = core.DefaultGoerliGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
-	case ctx.GlobalBool(YoloV2Flag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 133519467574834 // "yolov2"
-		}
-		cfg.Genesis = core.DefaultYoloV2GenesisBlock()
-	case ctx.GlobalBool(DeveloperFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 1337
-		}
-		// Create new developer account or reuse existing one
-		var (
-			developer  accounts.Account
-			passphrase string
-			err        error
-		)
-		if list := MakePasswordList(ctx); len(list) > 0 {
-			// Just take the first value. Although the function returns a possible multiple values and
-			// some usages iterate through them as attempts, that doesn't make sense in this setting,
-			// when we're definitely concerned with only one account.
-			passphrase = list[0]
-		}
-		// setEtherbase has been called above, configuring the miner address from command line flags.
-		if cfg.Miner.Etherbase != (common.Address{}) {
-			developer = accounts.Account{Address: cfg.Miner.Etherbase}
-		} else if accs := ks.Accounts(); len(accs) > 0 {
-			developer = ks.Accounts()[0]
-		} else {
-			developer, err = ks.NewAccount(passphrase)
-			if err != nil {
-				Fatalf("Failed to create developer account: %v", err)
-			}
-		}
-		if err := ks.Unlock(developer, passphrase); err != nil {
-			Fatalf("Failed to unlock developer account: %v", err)
-		}
-		log.Info("Using developer account", "address", developer.Address)
-
-		// Create a new developer genesis block or reuse existing one
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
-		if ctx.GlobalIsSet(DataDirFlag.Name) {
-			// Check if we have an already initialized chain and fall back to
-			// that if so. Otherwise we need to generate a new genesis spec.
-			chaindb := MakeChainDatabase(ctx, stack)
-			if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
-				cfg.Genesis = nil // fallback to db content
-			}
-			chaindb.Close()
-		}
-		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(LegacyMinerGasPriceFlag.Name) {
-			cfg.Miner.GasPrice = big.NewInt(1)
-		}
-	case ctx.GlobalBool(ReiMainnetFlag.Name):
+	// case ctx.GlobalBool(DeveloperFlag.Name):
+	// 	if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+	// 		cfg.NetworkId = 1337
+	// 	}
+	// 	// Create new developer account or reuse existing one
+	// 	var (
+	// 		developer  accounts.Account
+	// 		passphrase string
+	// 		err        error
+	// 	)
+	// 	if list := MakePasswordList(ctx); len(list) > 0 {
+	// 		// Just take the first value. Although the function returns a possible multiple values and
+	// 		// some usages iterate through them as attempts, that doesn't make sense in this setting,
+	// 		// when we're definitely concerned with only one account.
+	// 		passphrase = list[0]
+	// 	}
+	// 	// setEtherbase has been called above, configuring the miner address from command line flags.
+	// 	if cfg.Miner.Etherbase != (common.Address{}) {
+	// 		developer = accounts.Account{Address: cfg.Miner.Etherbase}
+	// 	} else if accs := ks.Accounts(); len(accs) > 0 {
+	// 		developer = ks.Accounts()[0]
+	// 	} else {
+	// 		developer, err = ks.NewAccount(passphrase)
+	// 		if err != nil {
+	// 			Fatalf("Failed to create developer account: %v", err)
+	// 		}
+	// 	}
+	// 	if err := ks.Unlock(developer, passphrase); err != nil {
+	// 		Fatalf("Failed to unlock developer account: %v", err)
+	// 	}
+	// 	log.Info("Using developer account", "address", developer.Address)
+	//
+	// 	// Create a new developer genesis block or reuse existing one
+	// 	cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
+	// 	if ctx.GlobalIsSet(DataDirFlag.Name) {
+	// 		// Check if we have an already initialized chain and fall back to
+	// 		// that if so. Otherwise we need to generate a new genesis spec.
+	// 		chaindb := MakeChainDatabase(ctx, stack)
+	// 		if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
+	// 			cfg.Genesis = nil // fallback to db content
+	// 		}
+	// 		chaindb.Close()
+	// 	}
+	// 	if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(LegacyMinerGasPriceFlag.Name) {
+	// 		cfg.Miner.GasPrice = big.NewInt(1)
+	// 	}
+	case ctx.GlobalBool(MainnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 55555
 		}
 
 		cfg.Genesis = core.DefaultReiMainnetGenesisBlock()
-	case ctx.GlobalBool(ReiTestnetFlag.Name):
+	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 55556
 		}
@@ -2194,16 +2105,10 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node) ethdb.Database {
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
 	var genesis *core.Genesis
 	switch {
-	case ctx.GlobalBool(LegacyTestnetFlag.Name) || ctx.GlobalBool(RopstenFlag.Name):
-		genesis = core.DefaultRopstenGenesisBlock()
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		genesis = core.DefaultRinkebyGenesisBlock()
-	case ctx.GlobalBool(GoerliFlag.Name):
-		genesis = core.DefaultGoerliGenesisBlock()
-	case ctx.GlobalBool(YoloV2Flag.Name):
-		genesis = core.DefaultYoloV2GenesisBlock()
-	case ctx.GlobalBool(DeveloperFlag.Name):
-		Fatalf("Developer chains are ephemeral")
+	case ctx.GlobalBool(MainnetFlag.Name):
+		genesis = core.DefaultReiMainnetGenesisBlock()
+	case ctx.GlobalBool(TestnetFlag.Name):
+		genesis = core.DefaultReiTestnetGenesisBlock()
 	}
 	return genesis
 }

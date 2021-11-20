@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var ShowDeprecated = cli.Command{
@@ -35,7 +36,6 @@ var ShowDeprecated = cli.Command{
 }
 
 var DeprecatedFlags = []cli.Flag{
-	LegacyTestnetFlag,
 	LegacyLightServFlag,
 	LegacyLightPeersFlag,
 	LegacyMinerThreadsFlag,
@@ -82,12 +82,6 @@ var (
 		Name:  "lightpeers",
 		Usage: "Maximum number of light clients to serve, or light servers to attach to  (deprecated, use --light.maxpeers)",
 		Value: eth.DefaultConfig.LightPeers,
-	}
-
-	// (Deprecated April 2020)
-	LegacyTestnetFlag = cli.BoolFlag{ // TODO(q9f): Remove after Ropsten is discontinued.
-		Name:  "testnet",
-		Usage: "Pre-configured test network (Deprecated: Please choose one of --goerli, --rinkeby, or --ropsten.)",
 	}
 
 	// (Deprecated May 2020, shown in aliased flags section)

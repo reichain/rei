@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/console/prompt"
@@ -39,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/trie"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -160,12 +161,7 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.CacheFlag,
 			utils.SyncModeFlag,
 			utils.FakePoWFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
 			utils.TxLookupLimitFlag,
-			utils.GoerliFlag,
-			utils.YoloV2Flag,
-			utils.LegacyTestnetFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -211,11 +207,6 @@ Use "ethereum dump 0" to dump the genesis block.`,
 			utils.DataDirFlag,
 			utils.AncientFlag,
 			utils.CacheFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
-			utils.GoerliFlag,
-			utils.YoloV2Flag,
-			utils.LegacyTestnetFlag,
 			utils.SyncModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
