@@ -11,6 +11,7 @@ Key differences from GoQuorum:
 - Miner receives gas fee from mined transactions
 - Hard-coded block difficulty to 1
 - Disable private transactions and contracts
+- Support p2p for broadcast blocks to public nodes
 
 ## License
 
