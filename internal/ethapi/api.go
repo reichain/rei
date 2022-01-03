@@ -1178,41 +1178,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
 		}
 	}
-
-	//QUORUM
-
-	//We don't know if this is going to be a private or public transaction
-	//It is possible to have a data field that has a lower intrinsic value than the PTM hash
-	//so this checks that if we were to place a PTM hash (with all non-zero values) here then the transaction would
-	//still run
-	//This makes the return value a potential over-estimate of gas, rather than the exact cost to run right now
-
-	//if the transaction has a value then it cannot be private, so we can skip this check
-	if args.Value != nil && args.Value.ToInt().Cmp(big.NewInt(0)) == 0 {
-		currentBlockHeight := b.CurrentHeader().Number
-		homestead := b.ChainConfig().IsHomestead(currentBlockHeight)
-		istanbul := b.ChainConfig().IsIstanbul(currentBlockHeight)
-
-		var data []byte
-		if args.Data == nil {
-			data = nil
-		} else {
-			data = []byte(*args.Data)
-		}
-		intrinsicGasPublic, _ := core.IntrinsicGas(data, args.To == nil, homestead, istanbul)
-		intrinsicGasPrivate, _ := core.IntrinsicGas(common.Hex2Bytes(common.MaxPrivateIntrinsicDataHex), args.To == nil, homestead, istanbul)
-
-		if intrinsicGasPrivate > intrinsicGasPublic {
-			if math.MaxUint64-hi < intrinsicGasPrivate-intrinsicGasPublic {
-				return 0, fmt.Errorf("private intrinsic gas addition exceeds allowance")
-			}
-			return hexutil.Uint64(hi + (intrinsicGasPrivate - intrinsicGasPublic)), nil
-		}
-
-	}
-
-	//END QUORUM
-
 	return hexutil.Uint64(hi), nil
 }
 
@@ -1876,12 +1841,12 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		args.Gas = &estimated
 		log.Trace("Estimate gas usage automatically", "gas", args.Gas)
 	}
-	//Quorum
+	// Quorum
 	if args.PrivateTxType == "" {
 		args.PrivateTxType = "restricted"
 	}
 	return args.SetDefaultPrivateFrom(ctx, b)
-	//End-Quorum
+	// End-Quorum
 }
 
 func (args *SendTxArgs) inputOrData() (result []byte) {
@@ -2021,9 +1986,9 @@ func runSimulation(ctx context.Context, b Backend, from common.Address, tx *type
 		_, _, err = evm.Call(vm.AccountRef(addr), *tx.To(), tx.Data(), tx.Gas(), tx.Value())
 	} else {
 		_, contractAddr, _, err = evm.Create(vm.AccountRef(addr), tx.Data(), tx.Gas(), tx.Value())
-		//make sure that nonce is same in simulation as in actual block processing
-		//simulation blockNumber will be behind block processing blockNumber by at least 1
-		//only guaranteed to work for default config where EIP158=1
+		// make sure that nonce is same in simulation as in actual block processing
+		// simulation blockNumber will be behind block processing blockNumber by at least 1
+		// only guaranteed to work for default config where EIP158=1
 		if evm.ChainConfig().IsEIP158(big.NewInt(evm.BlockNumber.Int64() + 1)) {
 			evm.StateDB.SetNonce(contractAddr, 1)
 		}
@@ -2598,8 +2563,8 @@ func (s *PublicTransactionPoolAPI) send(ctx context.Context, asyncArgs AsyncSend
 
 	if asyncArgs.CallbackUrl != "" {
 
-		//don't need to nil check this since id is required for every geth rpc call
-		//even though this is stated in the specification as an "optional" parameter
+		// don't need to nil check this since id is required for every geth rpc call
+		// even though this is stated in the specification as an "optional" parameter
 		jsonId := ctx.Value("id").(*json.RawMessage)
 		id := string(*jsonId)
 
@@ -2924,7 +2889,7 @@ func simulateExecutionForPE(ctx context.Context, b Backend, from common.Address,
 		// 2.2. PartyProtection/PSV: privacyMetadata = <data>, err = nil
 		privacyMetadata, err := evm.StateDB.GetPrivacyMetadata(addr)
 		log.Debug("Found affected contract", "address", addr.Hex(), "privacyMetadata", privacyMetadata)
-		//privacyMetadata not found=non-party, or another db error
+		// privacyMetadata not found=non-party, or another db error
 		if err != nil && privacyFlag.IsNotStandardPrivate() {
 			return nil, common.Hash{}, errors.New("PrivacyMetadata not found: " + err.Error())
 		}
@@ -2934,14 +2899,14 @@ func simulateExecutionForPE(ctx context.Context, b Backend, from common.Address,
 		if privacyMetadata == nil {
 			continue
 		}
-		//if affecteds are not all the same return an error
+		// if affecteds are not all the same return an error
 		if privacyFlag != privacyMetadata.PrivacyFlag {
 			return nil, common.Hash{}, errors.New("sent privacy flag doesn't match all affected contract flags")
 		}
 
 		affectedContractsHashes.Add(privacyMetadata.CreationTxHash)
 	}
-	//only calculate the merkle root if all contracts are psv
+	// only calculate the merkle root if all contracts are psv
 	if privacyFlag.Has(engine.PrivacyFlagStateValidation) {
 		merkleRoot, err = evm.CalculateMerkleRoot()
 		if err != nil {
@@ -2952,4 +2917,4 @@ func simulateExecutionForPE(ctx context.Context, b Backend, from common.Address,
 	return affectedContractsHashes, merkleRoot, nil
 }
 
-//End-Quorum
+// End-Quorum
