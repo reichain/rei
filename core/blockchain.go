@@ -29,6 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/common/prque"
@@ -46,7 +48,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -425,12 +426,12 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			bc.cacheConfig.TrieCleanRejournal = time.Minute
 		}
 		triedb := bc.stateCache.TrieDB()
-		privatetriedb := bc.PrivateStateManager()
 		bc.wg.Add(2)
 		go func() {
 			defer bc.wg.Done()
 			triedb.SaveCachePeriodically(bc.cacheConfig.TrieCleanJournal, bc.cacheConfig.TrieCleanRejournal, bc.quit)
 		}()
+		privatetriedb := bc.PrivateStateManager()
 		go func() {
 			defer bc.wg.Done()
 			privatetriedb.TrieDB().SaveCachePeriodically(bc.cacheConfig.PrivateTrieCleanJournal, bc.cacheConfig.TrieCleanRejournal, bc.quit)
