@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync/atomic"
@@ -31,8 +30,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,6 +39,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/private"
+	"github.com/ethereum/go-ethereum/private/engine/notinuse"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -105,6 +106,20 @@ with several RLP-encoded blocks, or several files can be used.
 If only one file is used, import error will result in failure. If several files are used,
 processing will proceed even if an individual RLP-file import failure occurs.`,
 	}
+	mpsdbUpgradeCommand = cli.Command{
+		Action:    utils.MigrateFlags(mpsdbUpgrade),
+		Name:      "mpsdbupgrade",
+		Usage:     "Upgrade a standalone DB to an MPS DB",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			utils.DataDirFlag,
+		},
+		Description: `
+Checks if the chain config isMPS parameter value. 
+If false, it upgrades the DB to be MPS enabled (builds the trie of private states) and if successful sets isMPS to true.
+If true, exits displaying an error message that the DB is already MPS.`,
+		Category: "BLOCKCHAIN COMMANDS",
+	}
 	exportCommand = cli.Command{
 		Action:    utils.MigrateFlags(exportChain),
 		Name:      "export",
@@ -135,7 +150,7 @@ be gzipped.`,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
-The import-preimages command imports hash preimages from an RLP encoded stream.`,
+	The import-preimages command imports hash preimages from an RLP encoded stream.`,
 	}
 	exportPreimagesCommand = cli.Command{
 		Action:    utils.MigrateFlags(exportPreimages),
@@ -161,23 +176,13 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.CacheFlag,
 			utils.SyncModeFlag,
 			utils.FakePoWFlag,
+			utils.MainnetFlag,
+			utils.TestnetFlag,
 			utils.TxLookupLimitFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
 The first argument must be the directory containing the blockchain to download from`,
-	}
-	removedbCommand = cli.Command{
-		Action:    utils.MigrateFlags(removeDB),
-		Name:      "removedb",
-		Usage:     "Remove blockchain and state databases",
-		ArgsUsage: " ",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
-		Description: `
-Remove blockchain and state databases`,
 	}
 	dumpCommand = cli.Command{
 		Action:    utils.MigrateFlags(dump),
@@ -197,19 +202,6 @@ Remove blockchain and state databases`,
 		Description: `
 The arguments are interpreted as block numbers or hashes.
 Use "ethereum dump 0" to dump the genesis block.`,
-	}
-	inspectCommand = cli.Command{
-		Action:    utils.MigrateFlags(inspect),
-		Name:      "inspect",
-		Usage:     "Inspect the storage size for each type of data in the database",
-		ArgsUsage: " ",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
-			utils.AncientFlag,
-			utils.CacheFlag,
-			utils.SyncModeFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
 	}
 )
 
@@ -344,17 +336,7 @@ func importChain(ctx *cli.Context) error {
 	fmt.Printf("Import done in %v.\n\n", time.Since(start))
 
 	// Output pre-compaction stats mostly to see the import trashing
-	stats, err := db.Stat("leveldb.stats")
-	if err != nil {
-		utils.Fatalf("Failed to read database stats: %v", err)
-	}
-	fmt.Println(stats)
-
-	ioStats, err := db.Stat("leveldb.iostats")
-	if err != nil {
-		utils.Fatalf("Failed to read database iostats: %v", err)
-	}
-	fmt.Println(ioStats)
+	showLeveldbStats(db)
 
 	// Print the memory statistics used by the importing
 	mem := new(runtime.MemStats)
@@ -372,23 +354,32 @@ func importChain(ctx *cli.Context) error {
 	// Compact the entire database to more accurately measure disk io and print the stats
 	start = time.Now()
 	fmt.Println("Compacting entire database...")
-	if err = db.Compact(nil, nil); err != nil {
+	if err := db.Compact(nil, nil); err != nil {
 		utils.Fatalf("Compaction failed: %v", err)
 	}
 	fmt.Printf("Compaction done in %v.\n\n", time.Since(start))
 
-	stats, err = db.Stat("leveldb.stats")
-	if err != nil {
-		utils.Fatalf("Failed to read database stats: %v", err)
-	}
-	fmt.Println(stats)
-
-	ioStats, err = db.Stat("leveldb.iostats")
-	if err != nil {
-		utils.Fatalf("Failed to read database iostats: %v", err)
-	}
-	fmt.Println(ioStats)
+	showLeveldbStats(db)
 	return importErr
+}
+
+func mpsdbUpgrade(ctx *cli.Context) error {
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	// initialise the tx manager with the dummy tx mgr
+	private.P = &notinuse.DBUpgradePrivateTransactionManager{}
+
+	chain, db := utils.MakeChain(ctx, stack, false, true)
+
+	if chain.Config().IsMPS {
+		utils.Fatalf("The database is already upgraded to support multiple private states.")
+	}
+
+	currentBlockNumber := chain.CurrentBlock().Number().Int64()
+	fmt.Printf("Current block number %v\n", currentBlockNumber)
+
+	return mps.UpgradeDB(db, chain)
 }
 
 func exportChain(ctx *cli.Context) error {
@@ -520,66 +511,6 @@ func copyDb(ctx *cli.Context) error {
 	return nil
 }
 
-func removeDB(ctx *cli.Context) error {
-	stack, config := makeConfigNode(ctx)
-
-	// Remove the full node state database
-	path := stack.ResolvePath("chaindata")
-	if common.FileExist(path) {
-		confirmAndRemoveDB(path, "full node state database")
-	} else {
-		log.Info("Full node state database missing", "path", path)
-	}
-	// Remove the full node ancient database
-	path = config.Eth.DatabaseFreezer
-	switch {
-	case path == "":
-		path = filepath.Join(stack.ResolvePath("chaindata"), "ancient")
-	case !filepath.IsAbs(path):
-		path = config.Node.ResolvePath(path)
-	}
-	if common.FileExist(path) {
-		confirmAndRemoveDB(path, "full node ancient database")
-	} else {
-		log.Info("Full node ancient database missing", "path", path)
-	}
-	// Remove the light node database
-	path = stack.ResolvePath("lightchaindata")
-	if common.FileExist(path) {
-		confirmAndRemoveDB(path, "light node database")
-	} else {
-		log.Info("Light node database missing", "path", path)
-	}
-	return nil
-}
-
-// confirmAndRemoveDB prompts the user for a last confirmation and removes the
-// folder if accepted.
-func confirmAndRemoveDB(database string, kind string) {
-	confirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Remove %s (%s)?", kind, database))
-	switch {
-	case err != nil:
-		utils.Fatalf("%v", err)
-	case !confirm:
-		log.Info("Database deletion skipped", "path", database)
-	default:
-		start := time.Now()
-		filepath.Walk(database, func(path string, info os.FileInfo, err error) error {
-			// If we're at the top level folder, recurse into
-			if path == database {
-				return nil
-			}
-			// Delete all the files, but not subfolders
-			if !info.IsDir() {
-				os.Remove(path)
-				return nil
-			}
-			return filepath.SkipDir
-		})
-		log.Info("Database successfully deleted", "path", database, "elapsed", common.PrettyDuration(time.Since(start)))
-	}
-}
-
 func dump(ctx *cli.Context) error {
 	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
@@ -617,16 +548,6 @@ func dump(ctx *cli.Context) error {
 		}
 	}
 	return nil
-}
-
-func inspect(ctx *cli.Context) error {
-	node, _ := makeConfigNode(ctx)
-	defer node.Close()
-
-	_, chainDb := utils.MakeChain(ctx, node, true, false)
-	defer chainDb.Close()
-
-	return rawdb.InspectDatabase(chainDb)
 }
 
 // hashish returns true for strings that look like hashes.

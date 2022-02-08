@@ -31,6 +31,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDecodeEmptyTypedReceipt(t *testing.T) {
+	input := []byte{0x80}
+	var r Receipt
+	err := rlp.DecodeBytes(input, &r)
+	if err != errEmptyTypedReceipt {
+		t.Fatal("wrong error:", err)
+	}
+}
+
 func TestLegacyReceiptDecoding(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -138,6 +147,9 @@ func compareLogsConsensusFields(t *testing.T, encLogs []*Log, decLogs []*Log) {
 }
 
 func comparePSReceipts(t *testing.T, encPSReceipts map[PrivateStateIdentifier]*Receipt, decPSReceipts map[PrivateStateIdentifier]*Receipt, supportPTM bool) {
+	if encPSReceipts == nil {
+		t.Fatalf("Receipt is missing the expected psReceipts[]")
+	}
 	if len(encPSReceipts) != len(decPSReceipts) {
 		t.Fatalf("Receipt psi number mismatch, want %v, have %v", len(encPSReceipts), len(decPSReceipts))
 	}
@@ -333,9 +345,29 @@ func newFullReceipt(withPSReceipts, withTopLevelReceiptRevertReason, withPSRecei
 // Tests that receipt data can be correctly derived from the contextual infos
 func TestDeriveFields(t *testing.T) {
 	// Create a few transactions to have receipts for
+	to2 := common.HexToAddress("0x2")
+	to3 := common.HexToAddress("0x3")
 	txs := Transactions{
-		NewContractCreation(1, big.NewInt(1), 1, big.NewInt(1), nil),
-		NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil),
+		NewTx(&LegacyTx{
+			Nonce:    1,
+			Value:    big.NewInt(1),
+			Gas:      1,
+			GasPrice: big.NewInt(1),
+		}),
+		NewTx(&LegacyTx{
+			To:       &to2,
+			Nonce:    2,
+			Value:    big.NewInt(2),
+			Gas:      2,
+			GasPrice: big.NewInt(2),
+		}),
+		NewTx(&AccessListTx{
+			To:       &to3,
+			Nonce:    3,
+			Value:    big.NewInt(3),
+			Gas:      3,
+			GasPrice: big.NewInt(3),
+		}),
 	}
 	// Create the corresponding receipts
 	receipts := Receipts{
@@ -360,6 +392,18 @@ func TestDeriveFields(t *testing.T) {
 			TxHash:          txs[1].Hash(),
 			ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
 			GasUsed:         2,
+		},
+		&Receipt{
+			Type:              AccessListTxType,
+			PostState:         common.Hash{3}.Bytes(),
+			CumulativeGasUsed: 6,
+			Logs: []*Log{
+				{Address: common.BytesToAddress([]byte{0x33})},
+				{Address: common.BytesToAddress([]byte{0x03, 0x33})},
+			},
+			TxHash:          txs[2].Hash(),
+			ContractAddress: common.BytesToAddress([]byte{0x03, 0x33, 0x33}),
+			GasUsed:         3,
 		},
 	}
 	// Clear all the computed fields and re-derive them
@@ -474,6 +518,9 @@ func TestDeriveFieldsMPS(t *testing.T) {
 }
 
 func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex int, receiptName string, blockHash common.Hash, blockNumber *big.Int, signer Signer) {
+	if receipt.Type != txs[txIndex].Type() {
+		t.Errorf("%s.Type = %d, want %d", receiptName, receipt.Type, txs[txIndex].Type())
+	}
 	if receipt.TxHash != txs[txIndex].Hash() {
 		t.Errorf("%s.TxHash = %s, want %s", receiptName, receipt.TxHash.String(), txs[txIndex].Hash().String())
 	}
@@ -513,6 +560,39 @@ func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex
 		if receipt.Logs[j].TxIndex != uint(txIndex) {
 			t.Errorf("%s.Logs[%d].TransactionIndex = %d, want %d", receiptName, j, receipt.Logs[j].TxIndex, txIndex)
 		}
+		// TODO: @achraf have a look how to include this
+		//if receipts[i].Logs[j].Index != logIndex {
+		//	t.Errorf("receipts[%d].Logs[%d].Index = %d, want %d", i, j, receipts[i].Logs[j].Index, logIndex)
+		//}
+		//logIndex++
+	}
+}
+
+// TestTypedReceiptEncodingDecoding reproduces a flaw that existed in the receipt
+// rlp decoder, which failed due to a shadowing error.
+func TestTypedReceiptEncodingDecoding(t *testing.T) {
+	var payload = common.FromHex("f9043eb9010c01f90108018262d4b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010c01f901080182cd14b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010d01f901090183013754b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0b9010d01f90109018301a194b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0")
+	check := func(bundle []*Receipt) {
+		t.Helper()
+		for i, receipt := range bundle {
+			if got, want := receipt.Type, uint8(1); got != want {
+				t.Fatalf("bundle %d: got %x, want %x", i, got, want)
+			}
+		}
+	}
+	{
+		var bundle []*Receipt
+		rlp.DecodeBytes(payload, &bundle)
+		check(bundle)
+	}
+	{
+		var bundle []*Receipt
+		r := bytes.NewReader(payload)
+		s := rlp.NewStream(r, uint64(len(payload)))
+		if err := s.Decode(&bundle); err != nil {
+			t.Fatal(err)
+		}
+		check(bundle)
 	}
 }
 
@@ -557,7 +637,7 @@ func clearComputedFieldsOnLog(t *testing.T, log *Log) {
 
 func TestQuorumReceiptExtraDataDecodingSuccess(t *testing.T) {
 	tx := NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil)
-	receipt := &Receipt{
+	ps1Receipt := &Receipt{
 		Status:            ReceiptStatusFailed,
 		CumulativeGasUsed: 1,
 		Logs: []*Log{
@@ -576,11 +656,11 @@ func TestQuorumReceiptExtraDataDecodingSuccess(t *testing.T) {
 		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
 		GasUsed:         111111,
 	}
-	receipt.Bloom = CreateBloom(Receipts{receipt})
+	ps1Receipt.Bloom = CreateBloom(Receipts{ps1Receipt})
 
 	extraData := &QuorumReceiptExtraData{
 		RevertReason: []byte("arbitrary reason"),
-		PSReceipts:   map[PrivateStateIdentifier]*Receipt{PrivateStateIdentifier("psi1"): receipt},
+		PSReceipts:   map[PrivateStateIdentifier]*Receipt{PrivateStateIdentifier("psi1"): ps1Receipt},
 	}
 	rlpData, err := rlp.EncodeToBytes(extraData)
 	assert.Nil(t, err)
@@ -591,7 +671,7 @@ func TestQuorumReceiptExtraDataDecodingSuccess(t *testing.T) {
 	assert.Contains(t, decodedExtraData.PSReceipts, PrivateStateIdentifier("psi1"))
 	decodedReceipt := decodedExtraData.PSReceipts[PrivateStateIdentifier("psi1")]
 	assert.NotNil(t, decodedReceipt)
-	testConsensusFields(t, ReceiptForStorage(*decodedReceipt), receipt, true, true, true)
+	comparePSReceipts(t, decodedExtraData.PSReceipts, extraData.PSReceipts, true)
 }
 
 func TestQuorumReceiptExtraDataDecodingFailDueToUnknownVersion(t *testing.T) {

@@ -6,7 +6,7 @@ on:
       - '**.md'
       - .gitignore
 env:
-  GO_VERSION: 1.15.5
+  GO_VERSION: 1.15.6
 jobs:
   lint:
     name: 'Code linters'
@@ -80,6 +80,7 @@ jobs:
     if: success()
     strategy:
       fail-fast: false
+      max-parallel: 6
       matrix:
         # list of tag expression being executed in parallel
         # for PR, only selective tests are run.

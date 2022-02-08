@@ -31,9 +31,33 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/urfave/cli.v1"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
 )
+
+func TestAuthorizationList(t *testing.T) {
+	value := "1=" + common.HexToHash("0xfa").Hex() + ",2=" + common.HexToHash("0x12").Hex()
+	result := map[uint64]common.Hash{
+		1: common.HexToHash("0xfa"),
+		2: common.HexToHash("0x12"),
+	}
+
+	arbitraryNodeConfig := &eth.Config{}
+	fs := &flag.FlagSet{}
+	fs.String(AuthorizationListFlag.Name, value, "")
+	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
+	arbitraryCLIContext.GlobalSet(AuthorizationListFlag.Name, value)
+	setAuthorizationList(arbitraryCLIContext, arbitraryNodeConfig)
+	assert.Equal(t, result, arbitraryNodeConfig.AuthorizationList)
+
+	fs = &flag.FlagSet{}
+	fs.String(AuthorizationListFlag.Name, value, "")
+	arbitraryCLIContext = cli.NewContext(nil, fs, nil)
+	arbitraryCLIContext.GlobalSet(DeprecatedAuthorizationListFlag.Name, value) // old wlist flag
+	setAuthorizationList(arbitraryCLIContext, arbitraryNodeConfig)
+	assert.Equal(t, result, arbitraryNodeConfig.AuthorizationList)
+}
 
 func TestPrivateTrieCache(t *testing.T) {
 	arbitraryNodeConfig := &eth.Config{}
@@ -194,8 +218,8 @@ func TestQuorumConfigFlags(t *testing.T) {
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(MultitenancyFlag.Name), "MultitenancyFlag not set")
 
 	assert.Equal(t, 12*time.Second, arbitraryEthConfig.EVMCallTimeOut, "EVMCallTimeOut value is incorrect")
-	assert.Equal(t, true, arbitraryEthConfig.EnableMultitenancy, "MultitenancyFlag value is incorrect")
-	assert.Equal(t, true, arbitraryEthConfig.QuorumPrivacyMarkerTransactionsEnabled, "QuorumEnablePrivacyMarker value is incorrect")
+	assert.Equal(t, true, arbitraryEthConfig.QuorumChainConfig.MultiTenantEnabled(), "MultitenancyFlag value is incorrect")
+	assert.Equal(t, true, arbitraryEthConfig.QuorumChainConfig.PrivacyMarkerEnabled(), "QuorumEnablePrivacyMarker value is incorrect")
 	assert.Equal(t, uint64(23), arbitraryEthConfig.Istanbul.RequestTimeout, "IstanbulRequestTimeoutFlag value is incorrect")
 	assert.Equal(t, uint64(34), arbitraryEthConfig.Istanbul.BlockPeriod, "IstanbulBlockPeriodFlag value is incorrect")
 	assert.Equal(t, true, arbitraryEthConfig.RaftMode, "RaftModeFlag value is incorrect")

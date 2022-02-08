@@ -25,7 +25,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -61,7 +60,8 @@ type ProtocolManager struct {
 	p2pServer *p2p.Server
 	useDns    bool
 
-	ethProtocolManager *eth.ProtocolManager
+	// Rei
+	broadcastBlockFunc func(block *types.Block, propagate bool)
 
 	// Blockchain services
 	blockchain *core.BlockChain
@@ -102,7 +102,7 @@ var errNoLeaderElected = errors.New("no leader is currently elected")
 // Public interface
 //
 
-func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockChain, mux *event.TypeMux, bootstrapNodes []*enode.Node, joinExisting bool, raftLogDir string, minter *minter, downloader *downloader.Downloader, useDns bool, p2pServer *p2p.Server, ethProtocolManager *eth.ProtocolManager) (*ProtocolManager, error) {
+func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockChain, mux *event.TypeMux, bootstrapNodes []*enode.Node, joinExisting bool, raftLogDir string, minter *minter, downloader *downloader.Downloader, useDns bool, p2pServer *p2p.Server, broadcastBlockFunc func(block *types.Block, propagate bool)) (*ProtocolManager, error) {
 	waldir := fmt.Sprintf("%s/raft-wal", raftLogDir)
 	snapdir := fmt.Sprintf("%s/raft-snap", raftLogDir)
 	quorumRaftDbLoc := fmt.Sprintf("%s/quorum-raft-state", raftLogDir)
@@ -130,7 +130,7 @@ func NewProtocolManager(raftId uint16, raftPort uint16, blockchain *core.BlockCh
 		downloader:          downloader,
 		useDns:              useDns,
 		p2pServer:           p2pServer,
-		ethProtocolManager:  ethProtocolManager,
+		broadcastBlockFunc:  broadcastBlockFunc,
 	}
 
 	if db, err := openQuorumRaftDb(quorumRaftDbLoc); err != nil {
@@ -1052,7 +1052,7 @@ func (pm *ProtocolManager) applyNewChainHead(block *types.Block) bool {
 			panic(fmt.Sprintf("failed to extend chain: %s", err.Error()))
 		}
 
-		go pm.ethProtocolManager.BroadcastBlock(block, false)
+		go pm.broadcastBlockFunc(block, false)
 		log.EmitCheckpoint(log.BlockCreated, "block", fmt.Sprintf("%x", block.Hash()))
 	}
 	return true

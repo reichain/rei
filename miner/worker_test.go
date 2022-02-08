@@ -87,10 +87,25 @@ func init() {
 		Period: 10,
 		Epoch:  30000,
 	}
-	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+
+	signer := types.LatestSigner(params.TestChainConfig)
+	tx1 := types.MustSignNewTx(testBankKey, signer, &types.AccessListTx{
+		ChainID: params.TestChainConfig.ChainID,
+		Nonce:   0,
+		To:      &testUserAddress,
+		Value:   big.NewInt(1000),
+		Gas:     params.TxGas,
+	})
 	pendingTxs = append(pendingTxs, tx1)
-	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+
+	tx2 := types.MustSignNewTx(testBankKey, signer, &types.LegacyTx{
+		Nonce: 1,
+		To:    &testUserAddress,
+		Value: big.NewInt(1000),
+		Gas:   params.TxGas,
+	})
 	newTxs = append(newTxs, tx2)
+
 	rand.Seed(time.Now().UnixNano())
 }
 
@@ -123,7 +138,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	}
 	genesis := gspec.MustCommit(db)
 
-	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, nil)
+	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, nil, nil)
 	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain)
 
 	// Generate a small n-block chain and an uncle block for it
@@ -224,7 +239,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, nil)
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, nil, nil)
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
@@ -588,9 +603,15 @@ func TestPrivatePSMRStateCreated(t *testing.T) {
 		ignored <- struct{}{}
 		return true
 	}
+	timer := time.NewTimer(3 * time.Second)
 	for i := 0; i < 2; i++ {
-		<-ignored
+		select {
+		case <-ignored:
+		case <-timer.C:
+			t.Fatalf("timeout")
+		}
 	}
+	timer.Stop()
 
 	go listenNewBlock()
 
