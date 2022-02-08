@@ -47,6 +47,9 @@ func (t *tesseraPrivateTxManager) submitJSON(method, path string, request interf
 	if t.features.HasFeature(engine.MultiTenancy) {
 		apiVersion = "vnd.tessera-2.1+"
 	}
+	if t.features.HasFeature(engine.MandatoryRecipients) && (path == "/send" || path == "/sendsignedtx") {
+		apiVersion = "vnd.tessera-4.0+"
+	}
 	if t.features.HasFeature(engine.MultiplePrivateStates) && path == "/groups/resident" {
 		// for the groups API the Content-type/Accept is application/json
 		apiVersion = ""
@@ -95,6 +98,9 @@ func (t *tesseraPrivateTxManager) Send(data []byte, from string, to []string, ex
 	if extra.PrivacyFlag.IsNotStandardPrivate() && !t.features.HasFeature(engine.PrivacyEnhancements) {
 		return "", nil, common.EncryptedPayloadHash{}, engine.ErrPrivateTxManagerDoesNotSupportPrivacyEnhancements
 	}
+	if extra.PrivacyFlag == engine.PrivacyFlagMandatoryRecipients && !t.features.HasFeature(engine.MandatoryRecipients) {
+		return "", nil, common.EncryptedPayloadHash{}, engine.ErrPrivateTxManagerDoesNotSupportMandatoryRecipients
+	}
 	response := new(sendResponse)
 	acMerkleRoot := ""
 	if !common.EmptyHash(extra.ACMerkleRoot) {
@@ -107,6 +113,7 @@ func (t *tesseraPrivateTxManager) Send(data []byte, from string, to []string, ex
 		AffectedContractTransactions: extra.ACHashes.ToBase64s(),
 		ExecHash:                     acMerkleRoot,
 		PrivacyFlag:                  extra.PrivacyFlag,
+		MandatoryRecipients:          extra.MandatoryRecipients,
 	}, response); err != nil {
 		return "", nil, common.EncryptedPayloadHash{}, err
 	}
@@ -218,6 +225,9 @@ func (t *tesseraPrivateTxManager) SendSignedTx(data common.EncryptedPayloadHash,
 	if extra.PrivacyFlag.IsNotStandardPrivate() && !t.features.HasFeature(engine.PrivacyEnhancements) {
 		return "", nil, nil, engine.ErrPrivateTxManagerDoesNotSupportPrivacyEnhancements
 	}
+	if extra.PrivacyFlag == engine.PrivacyFlagMandatoryRecipients && !t.features.HasFeature(engine.MandatoryRecipients) {
+		return "", nil, nil, engine.ErrPrivateTxManagerDoesNotSupportMandatoryRecipients
+	}
 	response := new(sendSignedTxResponse)
 	acMerkleRoot := ""
 	if !common.EmptyHash(extra.ACMerkleRoot) {
@@ -232,6 +242,7 @@ func (t *tesseraPrivateTxManager) SendSignedTx(data common.EncryptedPayloadHash,
 			AffectedContractTransactions: extra.ACHashes.ToBase64s(),
 			ExecHash:                     acMerkleRoot,
 			PrivacyFlag:                  extra.PrivacyFlag,
+			MandatoryRecipients:          extra.MandatoryRecipients,
 		}, response); err != nil {
 			return "", nil, nil, err
 		}
@@ -416,6 +427,38 @@ func (t *tesseraPrivateTxManager) GetParticipants(txHash common.EncryptedPayload
 
 	if err != nil {
 		log.Error("Failed to get participants from tessera", "err", err)
+		return nil, err
+	}
+
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Non-200 status code: %+v", res)
+	}
+
+	out, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	split := strings.Split(string(out), ",")
+
+	return split, nil
+}
+
+func (t *tesseraPrivateTxManager) GetMandatory(txHash common.EncryptedPayloadHash) ([]string, error) {
+	requestUrl := "/transaction/" + url.PathEscape(txHash.ToBase64()) + "/mandatory"
+	req, err := http.NewRequest("GET", t.client.FullPath(requestUrl), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := t.client.HttpClient.Do(req)
+
+	if res != nil {
+		defer res.Body.Close()
+	}
+
+	if err != nil {
+		log.Error("Failed to get mandatory recipients from tessera", "err", err)
 		return nil, err
 	}
 

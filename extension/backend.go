@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/private"
 	"github.com/ethereum/go-ethereum/private/engine"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -34,7 +35,8 @@ type PrivacyService struct {
 	mu           sync.Mutex
 	psiContracts map[types.PrivateStateIdentifier]map[common.Address]*ExtensionContract
 
-	node *node.Node
+	node   *node.Node
+	config *params.ChainConfig
 }
 
 var (
@@ -74,7 +76,7 @@ func (service *PrivacyService) subscribeStopEvent() (chan stopEvent, event.Subsc
 	return c, s
 }
 
-func New(stack *node.Node, ptm private.PrivateTransactionManager, manager *accounts.Manager, handler DataHandler, fetcher *StateFetcher, apiBackendHelper APIBackendHelper) (*PrivacyService, error) {
+func New(stack *node.Node, ptm private.PrivateTransactionManager, manager *accounts.Manager, handler DataHandler, fetcher *StateFetcher, apiBackendHelper APIBackendHelper, config *params.ChainConfig) (*PrivacyService, error) {
 	service := &PrivacyService{
 		psiContracts:     make(map[types.PrivateStateIdentifier]map[common.Address]*ExtensionContract),
 		ptm:              ptm,
@@ -83,6 +85,7 @@ func New(stack *node.Node, ptm private.PrivateTransactionManager, manager *accou
 		accountManager:   manager,
 		apiBackendHelper: apiBackendHelper,
 		node:             stack,
+		config:           config,
 	}
 
 	var err error
@@ -294,7 +297,18 @@ func (service *PrivacyService) watchForCompletionEvents(psi types.PrivateStateId
 				}
 				extraMetaData.ACMerkleRoot = storageRoot
 			}
+			// Fetch mandatory recipients data from Tessera - only when privacy flag is 2
+			if privacyMetaData.PrivacyFlag == engine.PrivacyFlagMandatoryRecipients {
+				fetchedMandatoryRecipients, err := service.ptm.GetMandatory(privacyMetaData.CreationTxHash)
+				if err != nil || len(fetchedMandatoryRecipients) == 0 {
+					log.Error("Extension: Unable to fetch mandatory parties for extension management contract", "error", err)
+					return
+				}
+				log.Debug("Extension: able to fetch mandatory recipients", "mandatory", fetchedMandatoryRecipients)
+				extraMetaData.MandatoryRecipients = fetchedMandatoryRecipients
+			}
 		}
+
 		_, _, hashOfStateData, err := service.ptm.Send(entireStateData, privateFrom, fetchedParties, &extraMetaData)
 
 		if err != nil {
@@ -373,7 +387,7 @@ func (service *PrivacyService) GenerateTransactOptions(txa ethapi.SendTxArgs) (*
 
 	//Find the account we plan to send the transaction from
 
-	txArgs := bind.NewWalletTransactor(wallet, from)
+	txArgs := bind.NewWalletTransactor(wallet, from, service.config.ChainID)
 	txArgs.PrivateFrom = txa.PrivateFrom
 	txArgs.PrivateFor = txa.PrivateFor
 	txArgs.GasLimit = defaultGasLimit

@@ -63,7 +63,7 @@ func newTestBackend(t *testing.T) *testBackend {
 			Config: params.TestChainConfig,
 			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
 		}
-		signer = types.NewEIP155Signer(gspec.Config.ChainID)
+		signer = types.LatestSigner(gspec.Config)
 	)
 	engine := ethash.NewFaker()
 	db := rawdb.NewMemoryDatabase()
@@ -81,7 +81,7 @@ func newTestBackend(t *testing.T) *testBackend {
 	// Construct testing chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.Commit(diskdb)
-	chain, err := core.NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil)
+	chain, err := core.NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}

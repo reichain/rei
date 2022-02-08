@@ -45,12 +45,12 @@ func newBlockchainFromConfig(genesis *core.Genesis, nodeKeys []*ecdsa.PrivateKey
 	backend.qbftConsensusEnabled = backend.IsQBFTConsensus()
 	genesis.MustCommit(memDB)
 
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, nil)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, nil, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	backend.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	backend.Start(blockchain, blockchain.CurrentBlock, rawdb.HasBadBlock)
 
 	snap, err := backend.snapshot(blockchain, 0, common.Hash{}, nil)
 	if err != nil {
@@ -169,7 +169,6 @@ func TestSealStopChannel(t *testing.T) {
 		stop <- struct{}{}
 		eventSub.Unsubscribe()
 	}
-	go eventLoop()
 	resultCh := make(chan *types.Block, 10)
 	go func() {
 		err := engine.Seal(chain, block, resultCh, stop)
@@ -177,6 +176,7 @@ func TestSealStopChannel(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 	}()
+	go eventLoop()
 
 	finalBlock := <-resultCh
 	if finalBlock != nil {

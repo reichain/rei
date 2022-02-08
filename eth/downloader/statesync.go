@@ -18,7 +18,6 @@ package downloader
 
 import (
 	"fmt"
-	"hash"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/trie"
@@ -102,8 +102,16 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		finished []*stateReq                  // Completed or failed requests
 		timeout  = make(chan *stateReq)       // Timed out active requests
 	)
-	// Run the state sync.
 	log.Trace("State sync starting", "root", s.root)
+
+	defer func() {
+		// Cancel active request timers on exit. Also set peers to idle so they're
+		// available for the next sync.
+		for _, req := range active {
+			req.timer.Stop()
+			req.peer.SetNodeDataIdle(int(req.nItems), time.Now())
+		}
+	}()
 	go s.run()
 	defer s.Cancel()
 
@@ -253,8 +261,9 @@ func (d *Downloader) spindownStateSync(active map[string]*stateReq, finished []*
 type stateSync struct {
 	d *Downloader // Downloader instance to access and manage current peerset
 
-	sched  *trie.Sync // State trie sync scheduler defining the tasks
-	keccak hash.Hash  // Keccak256 hasher to verify deliveries with
+	root   common.Hash        // State root currently being synced
+	sched  *trie.Sync         // State trie sync scheduler defining the tasks
+	keccak crypto.KeccakState // Keccak256 hasher to verify deliveries with
 
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
 	codeTasks map[common.Hash]*codeTask // Set of byte code tasks currently queued for retrieval
@@ -269,8 +278,6 @@ type stateSync struct {
 	cancelOnce sync.Once      // Ensures cancel only ever gets called once
 	done       chan struct{}  // Channel to signal termination completion
 	err        error          // Any error hit during sync (set before completion)
-
-	root common.Hash
 }
 
 // trieTask represents a single trie node download task, containing a set of
@@ -291,15 +298,15 @@ type codeTask struct {
 func newStateSync(d *Downloader, root common.Hash) *stateSync {
 	return &stateSync{
 		d:         d,
+		root:      root,
 		sched:     state.NewStateSync(root, d.stateDB, d.stateBloom),
-		keccak:    sha3.NewLegacyKeccak256(),
+		keccak:    sha3.NewLegacyKeccak256().(crypto.KeccakState),
 		trieTasks: make(map[common.Hash]*trieTask),
 		codeTasks: make(map[common.Hash]*codeTask),
 		deliver:   make(chan *stateReq),
 		cancel:    make(chan struct{}),
 		done:      make(chan struct{}),
 		started:   make(chan struct{}),
-		root:      root,
 	}
 }
 
@@ -307,7 +314,12 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 // it finishes, and finally notifying any goroutines waiting for the loop to
 // finish.
 func (s *stateSync) run() {
-	s.err = s.loop()
+	close(s.started)
+	if s.d.snapSync {
+		s.err = s.d.SnapSyncer.Sync(s.root, s.cancel)
+	} else {
+		s.err = s.loop()
+	}
 	close(s.done)
 }
 
@@ -319,7 +331,9 @@ func (s *stateSync) Wait() error {
 
 // Cancel cancels the sync and waits until it has shut down.
 func (s *stateSync) Cancel() error {
-	s.cancelOnce.Do(func() { close(s.cancel) })
+	s.cancelOnce.Do(func() {
+		close(s.cancel)
+	})
 	return s.Wait()
 }
 
@@ -330,7 +344,6 @@ func (s *stateSync) Cancel() error {
 // pushed here async. The reason is to decouple processing from data receipt
 // and timeouts.
 func (s *stateSync) loop() (err error) {
-	close(s.started)
 	// Listen for new peer events to assign tasks to them
 	newPeer := make(chan *peerConnection, 1024)
 	peerSub := s.d.peers.SubscribeNewPeers(newPeer)
@@ -578,7 +591,7 @@ func (s *stateSync) processNodeData(blob []byte) (common.Hash, error) {
 	res := trie.SyncResult{Data: blob}
 	s.keccak.Reset()
 	s.keccak.Write(blob)
-	s.keccak.Sum(res.Hash[:0])
+	s.keccak.Read(res.Hash[:])
 	err := s.sched.Process(res)
 	return res.Hash, err
 }

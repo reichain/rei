@@ -30,13 +30,13 @@ func NewServicesFactory(stack *node.Node, ptm private.PrivateTransactionManager,
 	factory.dataHandler = NewJsonFileDataHandler(stack.InstanceDir())
 	factory.stateFetcher = NewStateFetcher(ethService.BlockChain())
 
-	backendService, err := New(stack, ptm, factory.AccountManager(), factory.DataHandler(), factory.StateFetcher(), ethService.APIBackend)
+	backendService, err := New(stack, ptm, factory.AccountManager(), factory.DataHandler(), factory.StateFetcher(), ethService.APIBackend, ethService.BlockChain().Config())
 	if err != nil {
 		return nil, err
 	}
 	factory.backendService = backendService
 
-	_, isMultitenant := ethService.BlockChain().SupportsMultitenancy(context.Background())
+	isMultitenant := ethService.BlockChain().SupportsMultitenancy(context.Background())
 	privacyExtension.DefaultExtensionHandler.SupportMultitenancy(isMultitenant)
 	privacyExtension.DefaultExtensionHandler.SetPSMR(ethService.BlockChain().PrivateStateManager())
 
