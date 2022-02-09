@@ -230,7 +230,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "QUORUM",
 		Flags: []cli.Flag{
-			utils.QuorumImmutabilityThreshold,
 			utils.AllowedFutureBlockTimeFlag,
 		},
 	},

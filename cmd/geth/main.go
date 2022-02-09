@@ -147,7 +147,6 @@ var (
 		utils.EVMInterpreterFlag,
 		configFileFlag,
 		// Quorum
-		utils.QuorumImmutabilityThreshold,
 		utils.RaftModeFlag,
 		utils.RaftJoinExistingFlag,
 		utils.RaftPortFlag,

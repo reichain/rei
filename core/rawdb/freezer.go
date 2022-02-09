@@ -26,12 +26,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/tsdb/fileutil"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/prometheus/tsdb/fileutil"
 )
 
 var (
@@ -301,7 +302,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			continue
 		}
 		number := ReadHeaderNumber(nfdb, hash)
-		threshold := int(atomic.LoadUint64(&f.threshold))
+		threshold := atomic.LoadUint64(&f.threshold)
 
 		switch {
 		case number == nil:
@@ -309,12 +310,12 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			backoff = true
 			continue
 
-		case *number < uint64(params.GetImmutabilityThresholdWithDefault(threshold)):
-			log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", params.GetImmutabilityThresholdWithDefault(threshold))
+		case *number < threshold:
+			log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", threshold)
 			backoff = true
 			continue
 
-		case *number-uint64(params.GetImmutabilityThresholdWithDefault(threshold)) <= f.frozen:
+		case *number-threshold <= f.frozen:
 			log.Debug("Ancient blocks frozen already", "number", *number, "hash", hash, "frozen", f.frozen)
 			backoff = true
 			continue
@@ -326,7 +327,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			continue
 		}
 		// Seems we have data ready to be frozen, process in usable batches
-		limit := *number - uint64(params.GetImmutabilityThresholdWithDefault(threshold))
+		limit := *number - threshold
 		if limit-f.frozen > freezerBatchLimit {
 			limit = f.frozen + freezerBatchLimit
 		}

@@ -19,9 +19,6 @@ package utils
 
 import (
 	"flag"
-	"io/ioutil"
-	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"testing"
@@ -33,7 +30,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/node"
 )
 
 func TestAuthorizationList(t *testing.T) {
@@ -57,100 +53,6 @@ func TestAuthorizationList(t *testing.T) {
 	arbitraryCLIContext.GlobalSet(DeprecatedAuthorizationListFlag.Name, value) // old wlist flag
 	setAuthorizationList(arbitraryCLIContext, arbitraryNodeConfig)
 	assert.Equal(t, result, arbitraryNodeConfig.AuthorizationList)
-}
-
-func TestPrivateTrieCache(t *testing.T) {
-	arbitraryNodeConfig := &eth.Config{}
-	fs := &flag.FlagSet{}
-	fs.String(PrivateCacheTrieJournalFlag.Name, "test", "")
-	fs.String(CacheTrieJournalFlag.Name, "test", "")
-	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	arbitraryCLIContext.GlobalSet(PrivateCacheTrieJournalFlag.Name, "test")
-	arbitraryCLIContext.GlobalSet(CacheTrieJournalFlag.Name, "test")
-	assert.Error(t, setQuorumConfig(arbitraryCLIContext, arbitraryNodeConfig), arbitraryCLIContext)
-
-	fs = &flag.FlagSet{}
-	fs.String(PrivateCacheTrieJournalFlag.Name, "test1", "")
-	fs.String(CacheTrieJournalFlag.Name, "test2", "")
-	arbitraryCLIContext = cli.NewContext(nil, fs, nil)
-	arbitraryCLIContext.GlobalSet(PrivateCacheTrieJournalFlag.Name, "test1")
-	arbitraryCLIContext.GlobalSet(CacheTrieJournalFlag.Name, "test2")
-	assert.NoError(t, setQuorumConfig(arbitraryCLIContext, arbitraryNodeConfig))
-}
-
-func TestSetPlugins_whenPluginsNotEnabled(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
-	arbitraryCLIContext := cli.NewContext(nil, &flag.FlagSet{}, nil)
-
-	assert.NoError(t, SetPlugins(arbitraryCLIContext, arbitraryNodeConfig))
-
-	assert.Nil(t, arbitraryNodeConfig.Plugins)
-}
-
-func TestSetPlugins_whenInvalidFlagsCombination(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
-	fs := &flag.FlagSet{}
-	fs.String(PluginSettingsFlag.Name, "", "")
-	fs.Bool(PluginSkipVerifyFlag.Name, true, "")
-	fs.Bool(PluginLocalVerifyFlag.Name, true, "")
-	fs.String(PluginPublicKeyFlag.Name, "", "")
-	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginSettingsFlag.Name, "arbitrary value"))
-
-	verifyErrorMessage(t, arbitraryCLIContext, arbitraryNodeConfig, "only --plugins.skipverify or --plugins.localverify must be set")
-
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginSkipVerifyFlag.Name, "false"))
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginLocalVerifyFlag.Name, "false"))
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginPublicKeyFlag.Name, "arbitrary value"))
-
-	verifyErrorMessage(t, arbitraryCLIContext, arbitraryNodeConfig, "--plugins.localverify is required for setting --plugins.publickey")
-}
-
-func TestSetPlugins_whenInvalidPluginSettingsURL(t *testing.T) {
-	arbitraryNodeConfig := &node.Config{}
-	fs := &flag.FlagSet{}
-	fs.String(PluginSettingsFlag.Name, "", "")
-	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginSettingsFlag.Name, "arbitrary value"))
-
-	verifyErrorMessage(t, arbitraryCLIContext, arbitraryNodeConfig, "plugins: unable to create reader due to unsupported scheme ")
-}
-
-func TestSetImmutabilityThreshold(t *testing.T) {
-	fs := &flag.FlagSet{}
-	fs.Int(QuorumImmutabilityThreshold.Name, 0, "")
-	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(QuorumImmutabilityThreshold.Name, strconv.Itoa(100000)))
-	assert.True(t, arbitraryCLIContext.GlobalIsSet(QuorumImmutabilityThreshold.Name), "immutability threshold flag not set")
-	assert.Equal(t, 100000, arbitraryCLIContext.GlobalInt(QuorumImmutabilityThreshold.Name), "immutability threshold value not set")
-}
-
-func TestSetPlugins_whenTypical(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "q-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tmpDir)
-	}()
-	arbitraryJSONFile := path.Join(tmpDir, "arbitary.json")
-	if err := ioutil.WriteFile(arbitraryJSONFile, []byte("{}"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	arbitraryNodeConfig := &node.Config{}
-	fs := &flag.FlagSet{}
-	fs.String(PluginSettingsFlag.Name, "", "")
-	arbitraryCLIContext := cli.NewContext(nil, fs, nil)
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PluginSettingsFlag.Name, "file://"+arbitraryJSONFile))
-
-	assert.NoError(t, SetPlugins(arbitraryCLIContext, arbitraryNodeConfig))
-
-	assert.NotNil(t, arbitraryNodeConfig.Plugins)
-}
-
-func verifyErrorMessage(t *testing.T, ctx *cli.Context, cfg *node.Config, expectedMsg string) {
-	err := SetPlugins(ctx, cfg)
-	assert.EqualError(t, err, expectedMsg)
 }
 
 func Test_SplitTagsFlag(t *testing.T) {
@@ -205,8 +107,6 @@ func TestQuorumConfigFlags(t *testing.T) {
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(IstanbulRequestTimeoutFlag.Name, "23"))
 	fs.Uint64(IstanbulBlockPeriodFlag.Name, 0, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(IstanbulBlockPeriodFlag.Name, "34"))
-	fs.String(PrivateCacheTrieJournalFlag.Name, "", "")
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(PrivateCacheTrieJournalFlag.Name, "myprivatetriecache"))
 
 	require.NoError(t, setQuorumConfig(arbitraryCLIContext, arbitraryEthConfig))
 
@@ -216,5 +116,4 @@ func TestQuorumConfigFlags(t *testing.T) {
 	assert.Equal(t, uint64(23), arbitraryEthConfig.Istanbul.RequestTimeout, "IstanbulRequestTimeoutFlag value is incorrect")
 	assert.Equal(t, uint64(34), arbitraryEthConfig.Istanbul.BlockPeriod, "IstanbulBlockPeriodFlag value is incorrect")
 	assert.Equal(t, true, arbitraryEthConfig.RaftMode, "RaftModeFlag value is incorrect")
-	assert.Equal(t, "myprivatetriecache", arbitraryEthConfig.PrivateTrieCleanCacheJournal, "PrivateTrieCleanCacheJournal value is incorrect")
 }

@@ -219,11 +219,6 @@ type BlockChain interface {
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
 func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn) *Downloader {
-	// Quorum
-	// reset the value of maxForkAncenstry for Quorum based
-	fullMaxForkAncestry = uint64(params.GetImmutabilityThreshold())
-	// End Quorum
-
 	if lightchain == nil {
 		lightchain = chain
 	}
