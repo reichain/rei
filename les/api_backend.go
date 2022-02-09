@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,10 +49,6 @@ type LesApiBackend struct {
 
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
 	return b.eth.chainConfig
-}
-
-func (b *LesApiBackend) PSMR() mps.PrivateStateMetadataResolver {
-	panic("not supported")
 }
 
 func (b *LesApiBackend) CurrentBlock() *types.Block {
