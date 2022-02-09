@@ -184,10 +184,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		quorumConsensusProtocolLengths = quorumProtocol.Lengths
 	}
 
-	// force to set the istanbul etherbase to node key address
-	if chainConfig.Istanbul != nil {
-		eth.etherbase = crypto.PubkeyToAddress(stack.GetNodeKey().PublicKey)
-	}
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
 	if bcVersion != nil {
