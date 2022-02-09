@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -35,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -44,11 +42,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/multitenancy"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/private/engine"
-	"github.com/ethereum/go-ethereum/private/engine/notinuse"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -298,37 +293,6 @@ func TestQuorumTransaction_getReceipt_defaultReceiptGetter(t *testing.T) {
 	}
 }
 
-type ptmResponse struct {
-	body []byte
-	err  error
-}
-
-type stubPrivateTransactionManager struct {
-	notinuse.PrivateTransactionManager
-	responses map[common.EncryptedPayloadHash]ptmResponse
-}
-
-func (spm *stubPrivateTransactionManager) HasFeature(f engine.PrivateTransactionManagerFeature) bool {
-	return true
-}
-
-func (spm *stubPrivateTransactionManager) Receive(txHash common.EncryptedPayloadHash) (string, []string, []byte, *engine.ExtraMetadata, error) {
-	res, ok := spm.responses[txHash]
-	if !ok {
-		return "", nil, nil, nil, nil
-	}
-	if res.err != nil {
-		return "", nil, nil, nil, res.err
-	}
-	meta := &engine.ExtraMetadata{PrivacyFlag: engine.PrivacyFlagStandardPrivate}
-	return "", nil, res.body, meta, nil
-}
-
-func (spm *stubPrivateTransactionManager) ReceiveRaw(hash common.EncryptedPayloadHash) ([]byte, string, *engine.ExtraMetadata, error) {
-	_, sender, data, metadata, err := spm.Receive(hash)
-	return data, sender[0], metadata, err
-}
-
 type StubBackend struct{}
 
 func (sb *StubBackend) CurrentHeader() *types.Header {
@@ -336,10 +300,6 @@ func (sb *StubBackend) CurrentHeader() *types.Header {
 }
 
 func (sb *StubBackend) Engine() consensus.Engine {
-	panic("implement me")
-}
-
-func (sb *StubBackend) IsAuthorized(authToken *proto.PreAuthenticatedAuthenticationToken, attributes ...*multitenancy.PrivateStateSecurityAttribute) (bool, error) {
 	panic("implement me")
 }
 
@@ -507,26 +467,6 @@ func (sb *StubBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.S
 	panic("implement me")
 }
 
-func (sb *StubBackend) PSMR() mps.PrivateStateMetadataResolver {
-	return &StubPSMR{}
-}
-
 func (sb *StubBackend) UnprotectedAllowed() bool {
 	panic("implement me")
-}
-
-type StubPSMR struct {
-}
-
-func (psmr *StubPSMR) ResolveForManagedParty(managedParty string) (*mps.PrivateStateMetadata, error) {
-	panic("implement me")
-}
-func (psmr *StubPSMR) ResolveForUserContext(ctx context.Context) (*mps.PrivateStateMetadata, error) {
-	return mps.DefaultPrivateStateMetadata, nil
-}
-func (psmr *StubPSMR) PSIs() []types.PrivateStateIdentifier {
-	panic("implement me")
-}
-func (psmr *StubPSMR) NotIncludeAny(psm *mps.PrivateStateMetadata, managedParties ...string) bool {
-	return false
 }

@@ -854,9 +854,6 @@ type account struct {
 	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
 }
 
-// Quorum - Multitenancy
-// Before returning the result, we need to inspect the EVM and
-// perform verification check
 func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides map[common.Address]account, vmCfg vm.Config, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
