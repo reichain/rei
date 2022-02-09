@@ -153,8 +153,6 @@ var (
 		utils.RaftDNSEnabledFlag,
 		utils.SentryModeFlag,
 		utils.EmitCheckpointsFlag,
-		utils.IstanbulRequestTimeoutFlag,
-		utils.IstanbulBlockPeriodFlag,
 		utils.AllowedFutureBlockTimeFlag,
 		utils.EVMCallTimeOutFlag,
 		// End-Quorum

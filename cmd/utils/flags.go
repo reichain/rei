@@ -42,8 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
-	istanbulBackend "github.com/ethereum/go-ethereum/consensus/istanbul/backend"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -776,17 +774,6 @@ var (
 		Usage: "Max time (in seconds) from current time allowed for blocks, before they're considered future blocks",
 		Value: 0,
 	}
-	// Istanbul settings
-	IstanbulRequestTimeoutFlag = cli.Uint64Flag{
-		Name:  "istanbul.requesttimeout",
-		Usage: "Timeout for each Istanbul round in milliseconds",
-		Value: ethconfig.Defaults.Istanbul.RequestTimeout,
-	}
-	IstanbulBlockPeriodFlag = cli.Uint64Flag{
-		Name:  "istanbul.blockperiod",
-		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
-		Value: ethconfig.Defaults.Istanbul.BlockPeriod,
-	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1436,23 +1423,12 @@ func setAuthorizationList(ctx *cli.Context, cfg *eth.Config) {
 	}
 }
 
-// Quorum
-func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
-	if ctx.GlobalIsSet(IstanbulRequestTimeoutFlag.Name) {
-		cfg.Istanbul.RequestTimeout = ctx.GlobalUint64(IstanbulRequestTimeoutFlag.Name)
-	}
-	if ctx.GlobalIsSet(IstanbulBlockPeriodFlag.Name) {
-		cfg.Istanbul.BlockPeriod = ctx.GlobalUint64(IstanbulBlockPeriodFlag.Name)
-	}
-}
-
 func setRaft(ctx *cli.Context, cfg *eth.Config) {
 	cfg.RaftMode = ctx.GlobalBool(RaftModeFlag.Name)
 }
 
 func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {
 	cfg.EVMCallTimeOut = time.Duration(ctx.GlobalInt(EVMCallTimeOutFlag.Name)) * time.Second
-	setIstanbul(ctx, cfg)
 	setRaft(ctx, cfg)
 	return nil
 }
@@ -1900,16 +1876,6 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readOnly bool, useExist bool)
 	var engine consensus.Engine
 	if config.Clique != nil {
 		engine = clique.New(config.Clique, chainDb)
-	} else if config.Istanbul != nil {
-		// for IBFT
-		istanbulConfig := istanbul.DefaultConfig
-		if config.Istanbul.Epoch != 0 {
-			istanbulConfig.Epoch = config.Istanbul.Epoch
-		}
-		istanbulConfig.ProposerPolicy = istanbul.NewProposerPolicy(istanbul.ProposerPolicyId(config.Istanbul.ProposerPolicy))
-		istanbulConfig.Ceil2Nby3Block = config.Istanbul.Ceil2Nby3Block
-		istanbulConfig.TestQBFTBlock = config.Istanbul.TestQBFTBlock
-		engine = istanbulBackend.New(istanbulConfig, stack.GetNodeKey(), chainDb)
 	} else if config.IsQuorum {
 		// for Raft
 		engine = ethash.NewFullFaker()

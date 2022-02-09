@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/internal/testlog"
 	"github.com/ethereum/go-ethereum/log"
@@ -37,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/stretchr/testify/assert"
 )
 
 type testTransport struct {
@@ -505,10 +506,9 @@ func TestServerSetupConn_whenNotPermissioned(t *testing.T) {
 	clientNode := enode.NewV4(clientpub, nil, 0, 0)
 	srv := &Server{
 		Config: Config{
-			PrivateKey:           srvkey,
-			NoDiscovery:          true,
-			DataDir:              tmpDir,
-			EnableNodePermission: true,
+			PrivateKey:  srvkey,
+			NoDiscovery: true,
+			DataDir:     tmpDir,
 		},
 		newTransport: func(fd net.Conn, key *ecdsa.PublicKey) transport { return newTestTransport(clientpub, fd, key) },
 		log:          log.New(),

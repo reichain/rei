@@ -243,13 +243,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.SentryModeFlag,
 		},
 	},
-	{
-		Name: "ISTANBUL",
-		Flags: []cli.Flag{
-			utils.IstanbulRequestTimeoutFlag,
-			utils.IstanbulBlockPeriodFlag,
-		},
-	},
 	// END QUORUM
 	{
 		Name: "MISC",

@@ -29,8 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
-	istanbulBackend "github.com/ethereum/go-ethereum/consensus/istanbul/backend"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
@@ -88,9 +86,6 @@ var Defaults = Config{
 	RPCGasCap:   25000000,
 	GPO:         FullNodeGPO,
 	RPCTxFeeCap: 1, // 1 ether
-
-	// Quorum
-	Istanbul: *istanbul.DefaultConfig, // Quorum
 }
 
 func init() {
@@ -182,10 +177,7 @@ type Config struct {
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool
 
-	RaftMode             bool
-	EnableNodePermission bool
-	// Istanbul options
-	Istanbul istanbul.Config
+	RaftMode bool
 
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
@@ -223,18 +215,6 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 	if chainConfig.Clique != nil {
 		chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
 		return clique.New(chainConfig.Clique, db)
-	}
-	// If Istanbul is requested, set it up
-	if chainConfig.Istanbul != nil {
-		if chainConfig.Istanbul.Epoch != 0 {
-			config.Istanbul.Epoch = chainConfig.Istanbul.Epoch
-		}
-		config.Istanbul.ProposerPolicy = istanbul.NewProposerPolicy(istanbul.ProposerPolicyId(chainConfig.Istanbul.ProposerPolicy))
-		config.Istanbul.Ceil2Nby3Block = chainConfig.Istanbul.Ceil2Nby3Block
-		config.Istanbul.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
-		config.Istanbul.TestQBFTBlock = chainConfig.Istanbul.TestQBFTBlock
-
-		return istanbulBackend.New(&config.Istanbul, stack.GetNodeKey(), db)
 	}
 	// Otherwise assume proof-of-work
 	switch config.Ethash.PowMode {
