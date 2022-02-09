@@ -21,6 +21,8 @@ import (
 	"math/big"
 	"os"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -35,7 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 type Prestate struct {
@@ -99,16 +100,15 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		return h
 	}
 	var (
-		statedb        = MakePreState(rawdb.NewMemoryDatabase(), pre.Pre)
-		privateStatedb = MakePreState(rawdb.NewMemoryDatabase(), pre.Pre) // Quorum private state db
-		signer         = types.MakeSigner(chainConfig, new(big.Int).SetUint64(pre.Env.Number))
-		gaspool        = new(core.GasPool)
-		blockHash      = common.Hash{0x13, 0x37}
-		rejectedTxs    []int
-		includedTxs    types.Transactions
-		gasUsed        = uint64(0)
-		receipts       = make(types.Receipts, 0)
-		txIndex        = 0
+		statedb     = MakePreState(rawdb.NewMemoryDatabase(), pre.Pre)
+		signer      = types.MakeSigner(chainConfig, new(big.Int).SetUint64(pre.Env.Number))
+		gaspool     = new(core.GasPool)
+		blockHash   = common.Hash{0x13, 0x37}
+		rejectedTxs []int
+		includedTxs types.Transactions
+		gasUsed     = uint64(0)
+		receipts    = make(types.Receipts, 0)
+		txIndex     = 0
 	)
 	gaspool.AddGas(pre.Env.GasLimit)
 	vmContext := vm.BlockContext{
@@ -145,7 +145,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		statedb.Prepare(tx.Hash(), blockHash, txIndex)
 		txContext := core.NewEVMTxContext(msg)
 		snapshot := statedb.Snapshot()
-		evm := vm.NewEVM(vmContext, txContext, statedb, privateStatedb, chainConfig, vmConfig)
+		evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)
 
 		// (ret []byte, usedGas uint64, failed bool, err error)
 		msgResult, err := core.ApplyMessage(evm, msg, gaspool)
@@ -190,8 +190,8 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 			receipt.Logs = statedb.GetLogs(tx.Hash())
 			receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 			// These three are non-consensus fields:
-			//receipt.BlockHash
-			//receipt.BlockNumber
+			// receipt.BlockHash
+			// receipt.BlockNumber
 			receipt.TransactionIndex = uint(txIndex)
 			receipts = append(receipts, receipt)
 		}
