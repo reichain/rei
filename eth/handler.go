@@ -32,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
@@ -41,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -644,18 +642,6 @@ func (h *handler) getConsensusAlgorithm() string {
 	return consensusAlgo
 }
 
-func (h *handler) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
-	m := make(map[common.Address]consensus.Peer)
-	for _, p := range h.peers.peers {
-		pubKey := p.Node().Pubkey()
-		addr := crypto.PubkeyToAddress(*pubKey)
-		if targets[addr] {
-			m[addr] = p
-		}
-	}
-	return m
-}
-
 func (h *handler) handleConsensusLoop(p *p2p.Peer, protoRW p2p.MsgReadWriter) error {
 	// Handle incoming messages until the connection is torn down
 	for {
@@ -680,36 +666,3 @@ func (h *handler) handleConsensus(p *p2p.Peer, protoRW p2p.MsgReadWriter) error 
 
 	return nil
 }
-
-// makeLegacyProtocol is basically a copy of the eth makeProtocol, but for legacy subprotocols, e.g. "istanbul/99" "istabnul/64"
-// If support legacy subprotocols is removed, remove this and associated code as well.
-// If quorum is using a legacy protocol then the "eth" subprotocol should not be available.
-func (h *handler) makeLegacyProtocol(protoName string, version uint, length uint64) p2p.Protocol {
-	log.Debug("registering a legacy protocol ", "protoName", protoName)
-	return p2p.Protocol{
-		Name:    protoName,
-		Version: version,
-		Length:  length,
-		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-			peer := eth.NewPeer(version, p, rw, h.txpool)
-			peer.AddConsensusProtoRW(rw)
-			return h.runEthPeer(peer, func(peer *eth.Peer) error {
-				return h.handleConsensusLoop(p, rw)
-			})
-		},
-		NodeInfo: func() interface{} {
-			return h.NodeInfo()
-		},
-		PeerInfo: func(id enode.ID) interface{} {
-			if p := h.peers.peer(fmt.Sprintf("%x", id[:8])); p != nil {
-				return p.Info()
-			}
-			if p := h.peers.peer(fmt.Sprintf("%x", id)); p != nil { // TODO:BBO
-				return p.Info()
-			}
-			return nil
-		},
-	}
-}
-
-// End Quorum
