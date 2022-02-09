@@ -204,18 +204,13 @@ func (api *privateAdminAPI) StartRPC(host *string, port *int, cors *string, apis
 		}
 	}
 
-	tls, auth, err := api.node.GetSecuritySupports()
-	if err != nil {
-		return false, err
-	}
-
 	if err := api.node.http.setListenAddr(*host, *port); err != nil {
 		return false, err
 	}
-	if err := api.node.http.enableRPC(api.node.rpcAPIs, config, auth); err != nil {
+	if err := api.node.http.enableRPC(api.node.rpcAPIs, config); err != nil {
 		return false, err
 	}
-	if err := api.node.http.start(tls); err != nil {
+	if err := api.node.http.start(); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -263,20 +258,15 @@ func (api *privateAdminAPI) StartWS(host *string, port *int, allowedOrigins *str
 		}
 	}
 
-	tls, auth, err := api.node.GetSecuritySupports()
-	if err != nil {
-		return false, err
-	}
-
 	// Enable WebSocket on the server.
 	server := api.node.wsServerForPort(*port)
 	if err := server.setListenAddr(*host, *port); err != nil {
 		return false, err
 	}
-	if err := server.enableWS(api.node.rpcAPIs, config, auth); err != nil {
+	if err := server.enableWS(api.node.rpcAPIs, config); err != nil {
 		return false, err
 	}
-	if err := server.start(tls); err != nil {
+	if err := server.start(); err != nil {
 		return false, err
 	}
 	api.node.http.log.Info("WebSocket endpoint opened", "url", api.node.WSEndpoint())
@@ -296,12 +286,6 @@ type publicAdminAPI struct {
 	node *Node // Node interfaced by this API
 }
 
-// Quorum: an extended nodeInfo to include plugin details for current node
-type QuorumNodeInfo struct {
-	*p2p.NodeInfo
-	Plugins interface{} `json:"plugins"`
-}
-
 // Peers retrieves all the information we know about each individual peer at the
 // protocol granularity.
 func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
@@ -314,15 +298,12 @@ func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
 
 // NodeInfo retrieves all the information we know about the host node at the
 // protocol granularity.
-func (api *publicAdminAPI) NodeInfo() (*QuorumNodeInfo, error) {
+func (api *publicAdminAPI) NodeInfo() (*p2p.NodeInfo, error) {
 	server := api.node.Server()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
-	return &QuorumNodeInfo{
-		NodeInfo: server.NodeInfo(),
-		Plugins:  api.node.PluginManager().PluginsInfo(),
-	}, nil
+	return server.NodeInfo(), nil
 }
 
 // Datadir retrieves the current data directory the node is using.

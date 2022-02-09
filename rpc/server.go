@@ -19,13 +19,11 @@ package rpc
 import (
 	"context"
 	"io"
-	"net/http"
 	"sync/atomic"
 
 	mapset "github.com/deckarep/golang-set"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/plugin/security"
 )
 
 const MetadataApi = "rpc"
@@ -49,27 +47,11 @@ type Server struct {
 	idgen    func() ID
 	run      int32
 	codecs   mapset.Set
-
-	// Quorum
-	// The implementation would authenticate the token coming from a request
-	authenticationManager security.AuthenticationManager
-}
-
-// Quorum
-// Create a server which is protected by authManager and indicates if multitenancy is supported
-func NewProtectedServer(authManager security.AuthenticationManager) *Server {
-	server := NewServer()
-	if authManager != nil {
-		server.authenticationManager = authManager
-	}
-	return server
 }
 
 // NewServer creates a new server instance with no registered handlers.
 func NewServer() *Server {
-	server := &Server{idgen: randomIDGenerator(), codecs: mapset.NewSet(), run: 1,
-		authenticationManager: security.NewDisabledAuthenticationManager(),
-	}
+	server := &Server{idgen: randomIDGenerator(), codecs: mapset.NewSet(), run: 1}
 	// Register the default service providing meta information about the RPC service such
 	// as the services and methods it offers.
 	rpcService := &RPCService{server}
@@ -145,14 +127,6 @@ func (s *Server) Stop() {
 			return true
 		})
 	}
-}
-
-// Quorum
-// Perform authentication on the HTTP request. Populate security context with necessary information
-// for subsequent authorization-related activities
-func (s *Server) authenticateHttpRequest(r *http.Request, cfg securityContextConfigurer) {
-	securityContext := AuthenticateHttpRequest(context.Background(), r, s.authenticationManager)
-	cfg.Configure(securityContext)
 }
 
 // RPCService gives meta information about the server.

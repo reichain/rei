@@ -20,10 +20,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/holiman/uint256"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/holiman/uint256"
 )
 
 type dummyContractRef struct {
@@ -52,7 +53,7 @@ func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 func TestStoreCapture(t *testing.T) {
 	var (
 		db       = &dummyStatedb{}
-		env      = NewEVM(BlockContext{}, TxContext{}, db, db, params.TestChainConfig, Config{})
+		env      = NewEVM(BlockContext{}, TxContext{}, db, params.TestChainConfig, Config{})
 		logger   = NewStructLogger(nil)
 		mem      = NewMemory()
 		stack    = newstack()

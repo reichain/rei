@@ -19,7 +19,6 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -71,7 +70,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/plugin"
 	"github.com/ethereum/go-ethereum/raft"
 )
 
@@ -499,27 +497,6 @@ var (
 		Name:  "nocompaction",
 		Usage: "Disables db compaction after import",
 	}
-	// RPC Client Settings
-	RPCClientToken = cli.StringFlag{
-		Name:  "rpcclitoken",
-		Usage: "RPC Client access token",
-	}
-	RPCClientTLSCert = cli.StringFlag{
-		Name:  "rpcclitls.cert",
-		Usage: "Server's TLS certificate PEM file on connection by client",
-	}
-	RPCClientTLSCaCert = cli.StringFlag{
-		Name:  "rpcclitls.cacert",
-		Usage: "CA certificate PEM file for provided server's TLS certificate on connection by client",
-	}
-	RPCClientTLSCipherSuites = cli.StringFlag{
-		Name:  "rpcclitls.ciphersuites",
-		Usage: "Customize supported cipher suites when using TLS connection. Value is a comma-separated cipher suite string",
-	}
-	RPCClientTLSInsecureSkipVerify = cli.BoolFlag{
-		Name:  "rpcclitls.insecureskipverify",
-		Usage: "Disable verification of server's TLS certificate on connection by client",
-	}
 	// RPC settings
 	IPCDisabledFlag = cli.BoolFlag{
 		Name:  "ipcdisable",
@@ -805,28 +782,6 @@ var (
 		Name:  "allowedfutureblocktime",
 		Usage: "Max time (in seconds) from current time allowed for blocks, before they're considered future blocks",
 		Value: 0,
-	}
-	// Plugins settings
-	PluginSettingsFlag = cli.StringFlag{
-		Name:  "plugins",
-		Usage: "The URI of configuration which describes plugins being used. E.g.: file:///opt/geth/plugins.json",
-	}
-	PluginLocalVerifyFlag = cli.BoolFlag{
-		Name:  "plugins.localverify",
-		Usage: "If enabled, verify plugin integrity from local file system. This requires plugin signature file and PGP public key file to be available",
-	}
-	PluginPublicKeyFlag = cli.StringFlag{
-		Name:  "plugins.publickey",
-		Usage: fmt.Sprintf("The URI of PGP public key for local plugin verification. E.g.: file:///opt/geth/pubkey.pgp.asc. This flag is only valid if --%s is set (default = file:///<pluginBaseDir>/%s)", PluginLocalVerifyFlag.Name, plugin.DefaultPublicKeyFile),
-	}
-	PluginSkipVerifyFlag = cli.BoolFlag{
-		Name:  "plugins.skipverify",
-		Usage: "If enabled, plugin integrity is NOT verified",
-	}
-	// account plugin flags
-	AccountPluginNewAccountConfigFlag = cli.StringFlag{
-		Name:  "plugins.account.config",
-		Usage: "Value will be passed to an account plugin if being used.  See the account plugin implementation's documentation for further details",
 	}
 	// Istanbul settings
 	IstanbulRequestTimeoutFlag = cli.Uint64Flag{
@@ -1325,9 +1280,6 @@ func setDataDir(ctx *cli.Context, cfg *node.Config) {
 		// case ctx.GlobalBool(DeveloperFlag.Name):
 		// 	cfg.DataDir = "" // unless explicitly requested, use memory databases
 	}
-	if err := SetPlugins(ctx, cfg); err != nil {
-		Fatalf(err.Error())
-	}
 }
 
 func setRaftLogDir(ctx *cli.Context, cfg *node.Config) {
@@ -1336,39 +1288,6 @@ func setRaftLogDir(ctx *cli.Context, cfg *node.Config) {
 	} else {
 		cfg.RaftLogDir = cfg.DataDir
 	}
-}
-
-// Quorum
-//
-// Read plugin settings from --plugins flag. Overwrite settings defined in --config if any
-func SetPlugins(ctx *cli.Context, cfg *node.Config) error {
-	if ctx.GlobalIsSet(PluginSettingsFlag.Name) {
-		// validate flag combination
-		if ctx.GlobalBool(PluginSkipVerifyFlag.Name) && ctx.GlobalBool(PluginLocalVerifyFlag.Name) {
-			return fmt.Errorf("only --%s or --%s must be set", PluginSkipVerifyFlag.Name, PluginLocalVerifyFlag.Name)
-		}
-		if !ctx.GlobalBool(PluginLocalVerifyFlag.Name) && ctx.GlobalIsSet(PluginPublicKeyFlag.Name) {
-			return fmt.Errorf("--%s is required for setting --%s", PluginLocalVerifyFlag.Name, PluginPublicKeyFlag.Name)
-		}
-		pluginSettingsURL, err := url.Parse(ctx.GlobalString(PluginSettingsFlag.Name))
-		if err != nil {
-			return fmt.Errorf("plugins: Invalid URL for --%s due to %s", PluginSettingsFlag.Name, err)
-		}
-		var pluginSettings plugin.Settings
-		r, err := urlReader(pluginSettingsURL)
-		if err != nil {
-			return fmt.Errorf("plugins: unable to create reader due to %s", err)
-		}
-		defer func() {
-			_ = r.Close()
-		}()
-		if err := json.NewDecoder(r).Decode(&pluginSettings); err != nil {
-			return fmt.Errorf("plugins: unable to parse settings due to %s", err)
-		}
-		pluginSettings.SetDefaults()
-		cfg.Plugins = &pluginSettings
-	}
-	return nil
 }
 
 func urlReader(u *url.URL) (io.ReadCloser, error) {
@@ -1838,24 +1757,6 @@ func RegisterGraphQLService(stack *node.Node, backend ethapi.Backend, cfg node.C
 	if err := graphql.New(stack, backend, cfg.GraphQLCors, cfg.GraphQLVirtualHosts); err != nil {
 		Fatalf("Failed to register the GraphQL service: %v", err)
 	}
-}
-
-// Quorum
-//
-// Register plugin manager as a service in geth
-func RegisterPluginService(stack *node.Node, cfg *node.Config, skipVerify bool, localVerify bool, publicKey string) {
-	// ricardolyn: I can't adapt this Plugin Service construction to the new approach as there are circular dependencies between Node and Plugin
-	if err := cfg.ResolvePluginBaseDir(); err != nil {
-		Fatalf("plugins: unable to resolve plugin base dir due to %s", err)
-	}
-	pluginManager, err := plugin.NewPluginManager(cfg.UserIdent, cfg.Plugins, skipVerify, localVerify, publicKey)
-	if err != nil {
-		Fatalf("plugins: Failed to register the Plugins service: %v", err)
-	}
-	stack.SetPluginManager(pluginManager)
-	stack.RegisterAPIs(pluginManager.APIs())
-	stack.RegisterLifecycle(pluginManager)
-	log.Info("plugin service registered")
 }
 
 func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Config, ethService *eth.Ethereum) {

@@ -32,7 +32,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/accounts/pluggable"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/eth"
@@ -43,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/plugin"
 )
 
 const (
@@ -158,10 +156,6 @@ var (
 		utils.EmitCheckpointsFlag,
 		utils.IstanbulRequestTimeoutFlag,
 		utils.IstanbulBlockPeriodFlag,
-		utils.PluginSettingsFlag,
-		utils.PluginSkipVerifyFlag,
-		utils.PluginLocalVerifyFlag,
-		utils.PluginPublicKeyFlag,
 		utils.AllowedFutureBlockTimeFlag,
 		utils.EVMCallTimeOutFlag,
 		// End-Quorum
@@ -361,14 +355,6 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 
 	// Start up the node itself
 	utils.StartNode(ctx, stack)
-
-	// Now that the plugin manager has been started we register the account plugin with the corresponding account backend.  All other account management is disabled when using External Signer
-	if !ctx.IsSet(utils.ExternalSignerFlag.Name) && stack.PluginManager().IsEnabled(plugin.AccountPluginInterfaceName) {
-		b := stack.AccountManager().Backends(pluggable.BackendType)[0].(*pluggable.Backend)
-		if err := stack.PluginManager().AddAccountPluginToBackend(b); err != nil {
-			log.Error("failed to setup account plugin", "err", err)
-		}
-	}
 
 	// Unlock any account specifically requested
 	unlockAccounts(ctx, stack)

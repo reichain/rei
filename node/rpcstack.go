@@ -32,7 +32,6 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/plugin/security"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -118,7 +117,7 @@ func (h *httpServer) listenAddr() string {
 
 // Quorum - add tlsConfigSource used to start a listener with tls
 // start starts the HTTP server if it is enabled and not already running.
-func (h *httpServer) start(tlsConfigSource security.TLSConfigurationSource) error {
+func (h *httpServer) start() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -136,7 +135,7 @@ func (h *httpServer) start(tlsConfigSource security.TLSConfigurationSource) erro
 	}
 
 	// Start the server.
-	isTls, listener, err := startListener(h.endpoint, tlsConfigSource)
+	listener, err := net.Listen("tcp", h.endpoint)
 	if err != nil {
 		// If the server fails to start, we need to clear out the RPC and WS
 		// configuration so they can be configured another time.
@@ -164,7 +163,6 @@ func (h *httpServer) start(tlsConfigSource security.TLSConfigurationSource) erro
 		"prefix", h.httpConfig.prefix,
 		"cors", strings.Join(h.httpConfig.CorsAllowedOrigins, ","),
 		"vhosts", strings.Join(h.httpConfig.Vhosts, ","),
-		"isTls", isTls,
 	)
 
 	// Log all handlers mounted on server.
@@ -275,7 +273,7 @@ func (h *httpServer) doStop() {
 
 // Quorum - added argument `authManager` used to create protected server
 // enableRPC turns on JSON-RPC over HTTP on the server.
-func (h *httpServer) enableRPC(apis []rpc.API, config httpConfig, authManager security.AuthenticationManager) error {
+func (h *httpServer) enableRPC(apis []rpc.API, config httpConfig) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -284,7 +282,7 @@ func (h *httpServer) enableRPC(apis []rpc.API, config httpConfig, authManager se
 	}
 
 	// Create RPC server and handler.
-	srv := rpc.NewProtectedServer(authManager)
+	srv := rpc.NewServer()
 	if err := RegisterApisFromWhitelist(apis, config.Modules, srv, false); err != nil {
 		return err
 	}
@@ -308,7 +306,7 @@ func (h *httpServer) disableRPC() bool {
 
 // Quorum - added argument `authManager` used to create protected server
 // enableWS turns on JSON-RPC over WebSocket on the server.
-func (h *httpServer) enableWS(apis []rpc.API, config wsConfig, authManager security.AuthenticationManager) error {
+func (h *httpServer) enableWS(apis []rpc.API, config wsConfig) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -317,7 +315,7 @@ func (h *httpServer) enableWS(apis []rpc.API, config wsConfig, authManager secur
 	}
 
 	// Create RPC server and handler.
-	srv := rpc.NewProtectedServer(authManager)
+	srv := rpc.NewServer()
 	if err := RegisterApisFromWhitelist(apis, config.Modules, srv, false); err != nil {
 		return err
 	}

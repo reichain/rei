@@ -22,12 +22,8 @@ import (
 
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/plugin/security"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type handler struct {
@@ -57,7 +53,6 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(responseJSON)
-
 }
 
 // New constructs a new GraphQL service instance.
@@ -79,79 +74,11 @@ func newHandler(stack *node.Node, backend ethapi.Backend, cors, vhosts []string)
 		return err
 	}
 	h := handler{Schema: s}
-	// Quorum
-	// we wrap the handler with security logic to support
-	// auth/authz and multiple private states handling
-	// as GraphQL handler is created before services start
-	// so we need to defer the authManagerFunc creation in the later call.
-	authManagerFunc := func() (security.AuthenticationManager, error) {
-		// Obtain the authentication manager for the handler to deal with rpc security
-		_, auth, err := stack.GetSecuritySupports()
-		if err != nil {
-			return nil, err
-		}
-		if auth == nil {
-			return security.NewDisabledAuthenticationManager(), nil
-		}
-		return auth, err
-	}
-	handler := &secureHandler{
-		authManagerFunc: authManagerFunc,
-		protectedMethod: "graphql_*", // this follows JSON RPC convention using namespace graphql
-		delegate:        node.NewHTTPHandlerStack(h, cors, vhosts),
-	}
-	// need to obtain eth service in order to know if MPS is enabled
-	isMPS := false
-	var ethereum *eth.Ethereum
-	if err := stack.Lifecycle(&ethereum); err != nil {
-		log.Warn("Eth service is not ready yet", "error", err)
-	} else {
-		isMPS = ethereum.BlockChain().Config().IsMPS
-	}
-	stack.RegisterHandler("GraphQL UI", "/graphql/ui", GraphiQL{
-		authManagerFunc: authManagerFunc,
-		isMPS:           isMPS,
-	})
+	handler := node.NewHTTPHandlerStack(h, cors, vhosts)
+
+	stack.RegisterHandler("GraphQL UI", "/graphql/ui", GraphiQL{})
 	stack.RegisterHandler("GraphQL", "/graphql", handler)
 	stack.RegisterHandler("GraphQL", "/graphql/", handler)
 
 	return nil
-}
-
-// Quorum
-//
-// secureHandler wraps around the http handler in order to perform rpc security
-// and propagate the PSI into the request context.
-type secureHandler struct {
-	delegate        http.Handler
-	protectedMethod string
-	authManagerFunc security.AuthenticationManagerDeferFunc
-}
-
-func (h *secureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	authManager, err := h.authManagerFunc()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	// authentication check
-	securityContext := rpc.AuthenticateHttpRequest(r.Context(), r, authManager)
-	// authorization check
-	securedCtx, err := rpc.SecureCall(&securityContextHolder{ctx: securityContext}, h.protectedMethod)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
-		return
-	}
-	h.delegate.ServeHTTP(w, r.WithContext(securedCtx))
-}
-
-// Quorum
-// securityContextHolder stores a context so it can be retrieved later
-// via rpc.SecurityContextResolver interface
-type securityContextHolder struct {
-	ctx rpc.SecurityContext
-}
-
-func (sh *securityContextHolder) Resolve() rpc.SecurityContext {
-	return sh.ctx
 }

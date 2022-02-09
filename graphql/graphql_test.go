@@ -18,7 +18,6 @@ package graphql
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +47,6 @@ import (
 	"github.com/ethereum/go-ethereum/multitenancy"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/private"
 	"github.com/ethereum/go-ethereum/private/engine"
 	"github.com/ethereum/go-ethereum/private/engine/notinuse"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -281,166 +278,6 @@ func doHTTPRequest(t *testing.T, req *http.Request) *http.Response {
 
 	}
 	return resp
-}
-
-func TestQuorumSchema_PublicTransaction(t *testing.T) {
-	saved := private.P
-	defer func() {
-		private.P = saved
-	}()
-	private.P = &stubPrivateTransactionManager{}
-
-	publicTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), []byte("some random public payload"))
-	publicTxQuery := &Transaction{tx: publicTx, backend: &StubBackend{}}
-	isPrivate, err := publicTxQuery.IsPrivate(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if *isPrivate {
-		t.Fatalf("Expect isPrivate to be false for public TX")
-	}
-	privateInputData, err := publicTxQuery.PrivateInputData(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if privateInputData.String() != "0x" {
-		t.Fatalf("Expect privateInputData to be: \"0x\" for public TX, actual: %v", privateInputData.String())
-	}
-	internalPrivateTxQuery, err := publicTxQuery.PrivateTransaction(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if internalPrivateTxQuery != nil {
-		t.Fatalf("Expect PrivateTransaction to be nil for non privacy precompile public tx, actual: %v", *internalPrivateTxQuery)
-	}
-}
-
-func TestQuorumSchema_PrivateTransaction(t *testing.T) {
-	saved := private.P
-	defer func() {
-		private.P = saved
-	}()
-
-	payloadHashByt := sha3.Sum512([]byte("arbitrary key"))
-	arbitraryPayloadHash := common.BytesToEncryptedPayloadHash(payloadHashByt[:])
-	private.P = &stubPrivateTransactionManager{
-		responses: map[common.EncryptedPayloadHash]ptmResponse{
-			arbitraryPayloadHash: {
-				body: []byte("private payload"), // equals to 0x70726976617465207061796c6f6164 after converting to bytes
-				err:  nil,
-			},
-		},
-	}
-
-	privateTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), arbitraryPayloadHash.Bytes())
-	privateTx.SetPrivate()
-	privateTxQuery := &Transaction{tx: privateTx, backend: &StubBackend{}}
-	isPrivate, err := privateTxQuery.IsPrivate(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if !*isPrivate {
-		t.Fatalf("Expect isPrivate to be true for private TX")
-	}
-	privateInputData, err := privateTxQuery.PrivateInputData(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if privateInputData.String() != "0x70726976617465207061796c6f6164" {
-		t.Fatalf("Expect privateInputData to be: \"0x70726976617465207061796c6f6164\" for private TX, actual: %v", privateInputData.String())
-	}
-	internalPrivateTxQuery, err := privateTxQuery.PrivateTransaction(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if internalPrivateTxQuery != nil {
-		t.Fatalf("Expect PrivateTransaction to be nil for non privacy precompile private tx, actual: %v", *internalPrivateTxQuery)
-	}
-}
-
-func TestQuorumSchema_PrivacyMarkerTransaction(t *testing.T) {
-	saved := private.P
-	defer func() {
-		private.P = saved
-	}()
-
-	encryptedPayloadHashByt := sha3.Sum512([]byte("encrypted payload hash"))
-	encryptedPayloadHash := common.BytesToEncryptedPayloadHash(encryptedPayloadHashByt[:])
-
-	privateTx := types.NewTransaction(1, common.Address{}, big.NewInt(0), 0, big.NewInt(0), encryptedPayloadHash.Bytes())
-	privateTx.SetPrivate()
-	// json decoding later in the test requires the private tx to have signature values, so set to some arbitrary values here
-	_, r, s := privateTx.RawSignatureValues()
-	r.SetUint64(10)
-	s.SetUint64(10)
-
-	privateTxByt, _ := json.Marshal(privateTx)
-
-	encryptedPrivateTxHashByt := sha3.Sum512([]byte("encrypted pvt tx hash"))
-	encryptedPrivateTxHash := common.BytesToEncryptedPayloadHash(encryptedPrivateTxHashByt[:])
-
-	private.P = &stubPrivateTransactionManager{
-		responses: map[common.EncryptedPayloadHash]ptmResponse{
-			encryptedPayloadHash: {
-				body: []byte("private payload"), // equals to 0x70726976617465207061796c6f6164 after converting to bytes
-				err:  nil,
-			},
-			encryptedPrivateTxHash: {
-				body: privateTxByt,
-				err:  nil},
-		},
-	}
-
-	privacyMarkerTx := types.NewTransaction(0, common.QuorumPrivacyPrecompileContractAddress(), big.NewInt(0), 0, big.NewInt(0), encryptedPrivateTxHash.Bytes())
-
-	pmtQuery := &Transaction{tx: privacyMarkerTx, backend: &StubBackend{}}
-	isPrivate, err := pmtQuery.IsPrivate(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if *isPrivate {
-		t.Fatalf("Expect isPrivate to be false for public PMT")
-	}
-	privateInputData, err := pmtQuery.PrivateInputData(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if privateInputData.String() != "0x" {
-		t.Fatalf("Expect privateInputData to be: \"0x\" for public PMT, actual: %v", privateInputData.String())
-	}
-
-	internalPrivateTxQuery, err := pmtQuery.PrivateTransaction(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if internalPrivateTxQuery == nil {
-		t.Fatal("Expect PrivateTransaction to be non-nil for privacy precompile PMT, actual is nil")
-	}
-	isPrivate, err = internalPrivateTxQuery.IsPrivate(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if !*isPrivate {
-		t.Fatalf("Expect isPrivate to be true for internal private TX")
-	}
-	privateInputData, err = internalPrivateTxQuery.PrivateInputData(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if privateInputData.String() != "0x70726976617465207061796c6f6164" {
-		t.Fatalf("Expect privateInputData to be: \"0x70726976617465207061796c6f6164\" for internal private TX, actual: %v", privateInputData.String())
-	}
-	nestedInternalPrivateTxQuery, err := internalPrivateTxQuery.PrivateTransaction(context.Background())
-	if err != nil {
-		t.Fatalf("Expect no error: %v", err)
-	}
-	if nestedInternalPrivateTxQuery != nil {
-		t.Fatalf("Expect PrivateTransaction to be nil for internal private tx, actual: %v", *nestedInternalPrivateTxQuery)
-	}
-	_, ok := internalPrivateTxQuery.receiptGetter.(*privateTransactionReceiptGetter)
-	if !ok {
-		t.Fatalf("Expect internal private txs receiptGetter to be of type *graphql.privateTransactionReceiptGetter, actual: %T", internalPrivateTxQuery.receiptGetter)
-	}
 }
 
 func TestQuorumTransaction_getReceipt_defaultReceiptGetter(t *testing.T) {

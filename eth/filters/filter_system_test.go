@@ -31,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -174,10 +173,6 @@ func (b *testBackend) ServiceFilter(ctx context.Context, session *bloombits.Matc
 			}
 		}
 	}()
-}
-
-func (b *testBackend) PSMR() mps.PrivateStateMetadataResolver {
-	return &core.DefaultPrivateStateManager{}
 }
 
 // TestBlockSubscription tests if a block subscription returns block hashes for posted chain events.

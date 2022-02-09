@@ -58,8 +58,6 @@ type ServerCodec interface {
 	readBatch() (msgs []*jsonrpcMessage, isBatch bool, err error)
 	close()
 	jsonWriter
-	securityContextConfigurer
-	SecurityContextResolver
 }
 
 // jsonWriter can write JSON messages to its underlying connection.

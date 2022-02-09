@@ -151,13 +151,6 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	// Quorum - returning `ethService` too for the Raft and extension service
 	backend, ethService := utils.RegisterEthService(stack, &cfg.Eth)
 
-	// Quorum
-	// plugin service must be after eth service so that eth service will be stopped gradually if any of the plugin
-	// fails to start
-	if cfg.Node.Plugins != nil {
-		utils.RegisterPluginService(stack, &cfg.Node, ctx.Bool(utils.PluginSkipVerifyFlag.Name), ctx.Bool(utils.PluginLocalVerifyFlag.Name), ctx.String(utils.PluginPublicKeyFlag.Name))
-	}
-
 	if ctx.GlobalBool(utils.RaftModeFlag.Name) {
 		utils.RegisterRaftService(stack, ctx, &cfg.Node, ethService)
 	}

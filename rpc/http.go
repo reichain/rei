@@ -29,8 +29,6 @@ import (
 	"net/url"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -48,12 +46,6 @@ type httpConn struct {
 	closeCh   chan interface{}
 	mu        sync.Mutex // protects headers
 	headers   http.Header
-
-	// Quorum
-	// To return value being populated in Authorization request header
-	credentialsProvider HttpCredentialsProviderFunc
-	// psiProvider returns a value being populated in HttpPrivateStateIdentifierHeader
-	psiProvider PSIProviderFunc
 }
 
 // httpConn is treated specially by Client.
@@ -131,8 +123,7 @@ func DialHTTPWithClient(endpoint string, client *http.Client) (*Client, error) {
 	headers := make(http.Header, 2)
 	headers.Set("accept", contentType)
 	headers.Set("content-type", contentType)
-	initctx := resolvePSIProvider(context.Background(), endpoint)
-
+	initctx := context.Background()
 	return newClient(initctx, func(context.Context) (ServerCodec, error) {
 		hc := &httpConn{
 			client:  client,
@@ -208,25 +199,6 @@ func (hc *httpConn) doRequest(ctx context.Context, msg interface{}) (io.ReadClos
 	// set headers
 	hc.mu.Lock()
 	req.Header = hc.headers.Clone()
-
-	// Quorum
-	// do request
-	if hc.credentialsProvider != nil {
-		if token, err := hc.credentialsProvider(ctx); err != nil {
-			log.Warn("unable to obtain http credentials from provider", "err", err)
-		} else {
-			req.Header.Set(HttpAuthorizationHeader, token)
-		}
-	}
-	if hc.psiProvider != nil {
-		if psi, err := hc.psiProvider(ctx); err != nil {
-			log.Warn("unable to obtain PSI from provider", "err", err)
-		} else {
-			req.Header.Set(HttpPrivateStateIdentifierHeader, psi.String())
-		}
-	}
-	// End Quorum
-
 	hc.mu.Unlock()
 
 	resp, err := hc.client.Do(req)
@@ -290,7 +262,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", contentType)
 	codec := newHTTPServerConn(r, w)
 	defer codec.close()
-	s.authenticateHttpRequest(r, codec)
 	s.serveSingleRequest(ctx, codec)
 }
 

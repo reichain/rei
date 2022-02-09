@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/accounts/pluggable"
 	"github.com/ethereum/go-ethereum/accounts/scwallet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -360,8 +359,6 @@ func (s *PrivateAccountAPI) unlockAccount(addr common.Address, password string, 
 	}
 
 	switch b := backend.(type) {
-	case *pluggable.Backend:
-		return b.TimedUnlock(acct, password, duration)
 	case *keystore.KeyStore:
 		return b.TimedUnlock(acct, password, duration)
 	default:
@@ -388,8 +385,6 @@ func (s *PrivateAccountAPI) lockAccount(addr common.Address) error {
 	}
 
 	switch b := backend.(type) {
-	case *pluggable.Backend:
-		return b.Lock(acct)
 	case *keystore.KeyStore:
 		return b.Lock(addr)
 	default:

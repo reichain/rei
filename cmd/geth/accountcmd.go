@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -187,7 +188,6 @@ this import mechanism is not needed when you transfer an account between
 nodes.
 `,
 			},
-			quorumAccountPluginCommands,
 		},
 	}
 )
