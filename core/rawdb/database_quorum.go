@@ -22,14 +22,12 @@ package rawdb
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 var (
 	privateRootPrefix           = []byte("P")
 	privateStatesTrieRootPrefix = []byte("PSTP")
-	privateBloomPrefix          = []byte("Pb")
 	quorumEIP155ActivatedPrefix = []byte("quorum155active")
 	// Quorum
 	// we introduce a generic approach to store extra data for an account. PrivacyMetadata is wrapped.
@@ -39,8 +37,8 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
-//returns whether we have a chain configuration that can't be updated
-//after the EIP155 HF has happened
+// returns whether we have a chain configuration that can't be updated
+// after the EIP155 HF has happened
 func GetIsQuorumEIP155Activated(db ethdb.KeyValueReader) bool {
 	data, _ := db.Get(quorumEIP155ActivatedPrefix)
 	return len(data) == 1
@@ -78,22 +76,6 @@ func WritePrivateStatesTrieRoot(db ethdb.Database, blockRoot, root common.Hash) 
 // root hash of state.AccountExtraData trie to persistent storage
 func WriteRootHashMapping(db ethdb.KeyValueWriter, stateRoot, extraDataRoot common.Hash) error {
 	return db.Put(append(stateRootToExtraDataRootPrefix, stateRoot[:]...), extraDataRoot[:])
-}
-
-// WritePrivateBlockBloom creates a bloom filter for the given receipts and saves it to the database
-// with the number given as identifier (i.e. block number).
-func WritePrivateBlockBloom(db ethdb.Database, number uint64, receipts types.Receipts) error {
-	rbloom := types.CreateBloom(receipts.Flatten())
-	return db.Put(append(privateBloomPrefix, encodeBlockNumber(number)...), rbloom[:])
-}
-
-// GetPrivateBlockBloom retrieves the private bloom associated with the given number.
-func GetPrivateBlockBloom(db ethdb.Database, number uint64) (bloom types.Bloom) {
-	data, _ := db.Get(append(privateBloomPrefix, encodeBlockNumber(number)...))
-	if len(data) > 0 {
-		bloom = types.BytesToBloom(data)
-	}
-	return bloom
 }
 
 // AccountExtraDataLinker maintains mapping between root hash of the state trie

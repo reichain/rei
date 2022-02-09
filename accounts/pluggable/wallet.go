@@ -117,9 +117,7 @@ func (w *wallet) importRawKey(rawKey string, newAccountConfig interface{}) (acco
 func prepareTxForSign(tx *types.Transaction, chainID *big.Int) (common.Hash, types.Signer) {
 	var s types.Signer
 
-	if tx.IsPrivate() {
-		s = types.QuorumPrivateTxSigner{}
-	} else if chainID == nil {
+	if chainID == nil {
 		s = types.HomesteadSigner{}
 	} else {
 		s = types.NewEIP155Signer(chainID)

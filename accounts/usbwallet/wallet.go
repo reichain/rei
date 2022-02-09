@@ -19,12 +19,13 @@ package usbwallet
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/karalabe/usb"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -32,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/karalabe/usb"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.
@@ -549,10 +549,6 @@ func (w *wallet) SignText(account accounts.Account, text []byte) ([]byte, error)
 func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	w.stateLock.RLock() // Comms have own mutex, this is for the state fields
 	defer w.stateLock.RUnlock()
-
-	if tx.IsPrivate() {
-		return nil, errors.New("Signing Quorum Private transactions with a USB wallet not yet supported")
-	}
 
 	// If the wallet is closed, abort
 	if w.device == nil {

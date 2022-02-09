@@ -50,7 +50,7 @@ type PrivateTransactionManager interface {
 
 // This loads any config specified via the legacy environment variable
 func GetLegacyEnvironmentConfig() (http2.Config, error) {
-	return FromEnvironmentOrNil("PRIVATE_CONFIG")
+	return http2.NoConnectionConfig, nil
 }
 
 func FromEnvironmentOrNil(name string) (http2.Config, error) {

@@ -625,20 +625,6 @@ func isMaxCodeSizeConfigCompatible(c1, c2 *ChainConfig, head *big.Int) (error, *
 	return nil, big.NewInt(0), big.NewInt(0)
 }
 
-// Quorum
-//
-// IsPrivacyEnhancementsEnabled returns whether num represents a block number after the PrivacyEnhancementsEnabled fork
-func (c *ChainConfig) IsPrivacyEnhancementsEnabled(num *big.Int) bool {
-	return isForked(c.PrivacyEnhancementsBlock, num)
-}
-
-// Quorum
-//
-// Check whether num represents a block number after the PrivacyPrecompileBlock
-func (c *ChainConfig) IsPrivacyPrecompile(num *big.Int) bool {
-	return isForked(c.PrivacyPrecompileBlock, num)
-}
-
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, isQuorumEIP155Activated bool) *ConfigCompatError {
@@ -850,8 +836,6 @@ type Rules struct {
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin                                                bool
-	IsPrivacyEnhancementsEnabled                            bool // Quorum
-	IsPrivacyPrecompile                                     bool // Quorum
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -861,17 +845,15 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		chainID = new(big.Int)
 	}
 	return Rules{
-		ChainID:                      new(big.Int).Set(chainID),
-		IsHomestead:                  c.IsHomestead(num),
-		IsEIP150:                     c.IsEIP150(num),
-		IsEIP155:                     c.IsEIP155(num),
-		IsEIP158:                     c.IsEIP158(num),
-		IsByzantium:                  c.IsByzantium(num),
-		IsConstantinople:             c.IsConstantinople(num),
-		IsPetersburg:                 c.IsPetersburg(num),
-		IsIstanbul:                   c.IsIstanbul(num),
-		IsBerlin:                     c.IsBerlin(num),
-		IsPrivacyEnhancementsEnabled: c.IsPrivacyEnhancementsEnabled(num), // Quorum
-		IsPrivacyPrecompile:          c.IsPrivacyPrecompile(num),          // Quorum
+		ChainID:          new(big.Int).Set(chainID),
+		IsHomestead:      c.IsHomestead(num),
+		IsEIP150:         c.IsEIP150(num),
+		IsEIP155:         c.IsEIP155(num),
+		IsEIP158:         c.IsEIP158(num),
+		IsByzantium:      c.IsByzantium(num),
+		IsConstantinople: c.IsConstantinople(num),
+		IsPetersburg:     c.IsPetersburg(num),
+		IsIstanbul:       c.IsIstanbul(num),
+		IsBerlin:         c.IsBerlin(num),
 	}
 }

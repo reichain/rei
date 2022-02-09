@@ -183,11 +183,6 @@ func (s eip2930Signer) Equal(s2 Signer) bool {
 }
 
 func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
-	// Quorum
-	if tx.IsPrivate() {
-		return QuorumPrivateTxSigner{}.Sender(tx)
-	}
-	// End Quorum
 	V, R, S := tx.RawSignatureValues()
 	switch tx.Type() {
 	case LegacyTxType:
@@ -262,7 +257,7 @@ func (s eip2930Signer) Hash(tx *Transaction) common.Hash {
 		// This _should_ not happen, but in case someone sends in a bad
 		// json struct via RPC, it's probably more prudent to return an
 		// empty hash instead of killing the node with a panic
-		//panic("Unsupported transaction type: %d", tx.typ)
+		// panic("Unsupported transaction type: %d", tx.typ)
 		return common.Hash{}
 	}
 }
@@ -295,9 +290,6 @@ func (s EIP155Signer) Equal(s2 Signer) bool {
 var big8 = big.NewInt(8)
 
 func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
-	if tx.IsPrivate() {
-		return QuorumPrivateTxSigner{}.Sender(tx)
-	}
 	if tx.Type() != LegacyTxType {
 		return common.Address{}, ErrTxTypeNotSupported
 	}
@@ -424,14 +416,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	if Vb.BitLen() > 8 {
 		return common.Address{}, ErrInvalidSig
 	}
-	var offset uint64
-	// private transaction has a v value of 37 or 38
-	if isPrivate(Vb) {
-		offset = 37
-	} else {
-		offset = 27
-	}
-	V := byte(Vb.Uint64() - offset)
+	V := byte(Vb.Uint64() - 27)
 	if !crypto.ValidateSignatureValues(V, R, S, homestead) {
 		return common.Address{}, ErrInvalidSig
 	}

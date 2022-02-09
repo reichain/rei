@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/eapache/channels"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -46,11 +47,10 @@ var (
 
 // Current state information for building the next block
 type work struct {
-	config       *params.ChainConfig
-	publicState  *state.StateDB
-	privateState *state.StateDB
-	Block        *types.Block
-	header       *types.Header
+	config      *params.ChainConfig
+	publicState *state.StateDB
+	Block       *types.Block
+	header      *types.Header
 }
 
 type minter struct {
@@ -273,20 +273,15 @@ func (minter *minter) createWork() *work {
 		Time:       uint64(tstamp),
 	}
 
-	publicState, privateStateManager, err := minter.chain.StateAt(parent.Root())
+	publicState, err := minter.chain.StateAt(parent.Root())
 	if err != nil {
 		panic(fmt.Sprint("failed to get parent state: ", err))
 	}
-	defaultPrivateState, err := privateStateManager.DefaultState()
-	if err != nil {
-		panic(fmt.Sprint("failed to get default private state: ", err))
-	}
 
 	return &work{
-		config:       minter.config,
-		publicState:  publicState,
-		privateState: defaultPrivateState,
-		header:       header,
+		config:      minter.config,
+		publicState: publicState,
+		header:      header,
 	}
 }
 
@@ -322,7 +317,7 @@ func (minter *minter) mintNewBlock() {
 	work := minter.createWork()
 	transactions := minter.getTransactions()
 
-	committedTxes, publicReceipts, _, logs := work.commitTransactions(transactions, minter.chain)
+	committedTxes, publicReceipts, logs := work.commitTransactions(transactions, minter.chain)
 	txCount := len(committedTxes)
 
 	if txCount == 0 {
@@ -345,7 +340,7 @@ func (minter *minter) mintNewBlock() {
 		l.BlockHash = headerHash
 	}
 
-	//Sign the block and build the extraSeal struct
+	// Sign the block and build the extraSeal struct
 	extraSealBytes := minter.buildExtraSeal(headerHash)
 
 	// add vanity and seal to header
@@ -358,7 +353,7 @@ func (minter *minter) mintNewBlock() {
 	log.Info("Generated next block", "block num", block.Number(), "num txes", txCount)
 
 	deleteEmptyObjects := minter.chain.Config().IsEIP158(block.Number())
-	if err := minter.chain.CommitBlockWithState(deleteEmptyObjects, work.publicState, work.privateState); err != nil {
+	if err := minter.chain.CommitBlockWithState(deleteEmptyObjects, work.publicState); err != nil {
 		panic(err)
 	}
 
@@ -370,11 +365,10 @@ func (minter *minter) mintNewBlock() {
 	log.Info("🔨  Mined block", "number", block.Number(), "hash", fmt.Sprintf("%x", block.Hash().Bytes()[:4]), "elapsed", elapsed)
 }
 
-func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc *core.BlockChain) (types.Transactions, types.Receipts, types.Receipts, []*types.Log) {
+func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc *core.BlockChain) (types.Transactions, types.Receipts, []*types.Log) {
 	var allLogs []*types.Log
 	var committedTxes types.Transactions
 	var publicReceipts types.Receipts
-	var privateReceipts types.Receipts
 
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	txCount := 0
@@ -387,7 +381,7 @@ func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc 
 
 		env.publicState.Prepare(tx.Hash(), common.Hash{}, txCount)
 
-		publicReceipt, privateReceipt, err := env.commitTransaction(tx, bc, gp)
+		publicReceipt, err := env.commitTransaction(tx, bc, gp)
 		switch {
 		case err != nil:
 			log.Info("TX failed, will be removed", "hash", tx.Hash(), "err", err)
@@ -399,55 +393,48 @@ func (env *work) commitTransactions(txes *types.TransactionsByPriceAndNonce, bc 
 			publicReceipts = append(publicReceipts, publicReceipt)
 			allLogs = append(allLogs, publicReceipt.Logs...)
 
-			if privateReceipt != nil {
-				privateReceipts = append(privateReceipts, privateReceipt)
-				allLogs = append(allLogs, privateReceipt.Logs...)
-			}
-
 			txes.Shift()
 		}
 	}
 
-	return committedTxes, publicReceipts, privateReceipts, allLogs
+	return committedTxes, publicReceipts, allLogs
 }
 
-func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (*types.Receipt, *types.Receipt, error) {
+func (env *work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (*types.Receipt, error) {
 	publicSnapshot := env.publicState.Snapshot()
-	privateSnapshot := env.privateState.Snapshot()
 
 	var author *common.Address
 	var vmConf vm.Config
 	txnStart := time.Now()
 	// Note that raft minter doesn't care about private state etc, hence can pass forceNonParty=true and privateStateRepo=nil
-	publicReceipt, privateReceipt, err := core.ApplyTransaction(env.config, bc, author, gp, env.publicState, env.privateState, env.header, tx, &env.header.GasUsed, vmConf, true, nil)
+	publicReceipt, err := core.ApplyTransaction(env.config, bc, author, gp, env.publicState, env.header, tx, &env.header.GasUsed, vmConf)
 	if err != nil {
 		env.publicState.RevertToSnapshot(publicSnapshot)
-		env.privateState.RevertToSnapshot(privateSnapshot)
 
-		return nil, nil, err
+		return nil, err
 	}
 	log.EmitCheckpoint(log.TxCompleted, "tx", tx.Hash().Hex(), "time", time.Since(txnStart))
 
-	return publicReceipt, privateReceipt, nil
+	return publicReceipt, nil
 }
 
 func (minter *minter) buildExtraSeal(headerHash common.Hash) []byte {
-	//Sign the headerHash
+	// Sign the headerHash
 	nodeKey := minter.eth.nodeKey
 	sig, err := crypto.Sign(headerHash.Bytes(), nodeKey)
 	if err != nil {
 		log.Warn("Block sealing failed", "err", err)
 	}
 
-	//build the extraSeal struct
+	// build the extraSeal struct
 	raftIdString := hexutil.EncodeUint64(uint64(minter.eth.raftProtocolManager.raftId))
 
 	extra := extraSeal{
-		RaftId:    []byte(raftIdString[2:]), //remove the 0x prefix
+		RaftId:    []byte(raftIdString[2:]), // remove the 0x prefix
 		Signature: sig,
 	}
 
-	//encode to byte array for storage
+	// encode to byte array for storage
 	extraDataBytes, err := rlp.EncodeToBytes(extra)
 	if err != nil {
 		log.Warn("Header.Extra Data Encoding failed", "err", err)

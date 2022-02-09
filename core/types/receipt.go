@@ -301,11 +301,6 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 	if err := decodeStoredReceiptRLP(r, blob); err == nil {
 		return nil
 	}
-	// TODO remove once we know the early adopters of MPS have upgraded to the latest version by doing a full resync
-	// reverse order for MPS receipts as it is the less likely encoding
-	if err := decodeStoredMPSReceiptRLP(r, blob); err == nil {
-		return nil
-	}
 	if err := decodeV3StoredReceiptRLP(r, blob); err == nil {
 		return nil
 	}
@@ -429,17 +424,13 @@ func (r Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, num
 	allPublic := make([]*Receipt, 0)                           // All public receipts, & private receipts if MPS disabled
 	for i := 0; i < len(receiptsCopy); i++ {
 		receipt := receiptsCopy[i]
-		tx := txs[i]
 
 		// if receipt is public, append to all known PSIs
 		// if private, append to all attached PSIs
 		//    if new PSI, attach public version of all previous receipts
 		// append public to all other PSIs
-
-		if !tx.IsPrivate() {
-			for psi := range allReceipts {
-				allReceipts[psi] = append(allReceipts[psi], receipt)
-			}
+		for psi := range allReceipts {
+			allReceipts[psi] = append(allReceipts[psi], receipt)
 		}
 
 		// if this is a private tx or a privacy marker tx then receipt.PSReceipts must be processed to
@@ -632,7 +623,6 @@ func convertPrivateReceiptsForDecoding(storedPSReceipts []storedPSIToReceiptMapE
 		rec.Logs = make([]*Log, len(entry.Value.Logs))
 		for i, log := range entry.Value.Logs {
 			rec.Logs[i] = (*Log)(log)
-			rec.Logs[i].PSI = entry.Key
 		}
 		rec.Bloom = CreateBloom(Receipts{rec})
 		rec.RevertReason = entry.Value.RevertReason
@@ -720,46 +710,6 @@ type storedMPSReceiptRLP struct {
 type storedPSIToReceiptMapEntry struct {
 	Key   PrivateStateIdentifier
 	Value storedReceiptRLP
-}
-
-func convertLogsForDecoding(storedLogs []*LogForStorage) []*Log {
-	result := make([]*Log, len(storedLogs))
-	for i, log := range storedLogs {
-		result[i] = (*Log)(log)
-	}
-	return result
-}
-
-func decodeStoredMPSReceiptRLP(r *ReceiptForStorage, blob []byte) error {
-	var stored storedMPSReceiptRLP
-	if err := rlp.DecodeBytes(blob, &stored); err != nil {
-		return err
-	}
-	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
-		return err
-	}
-	r.CumulativeGasUsed = stored.CumulativeGasUsed
-	r.Logs = convertLogsForDecoding(stored.Logs)
-	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
-
-	if len(stored.PSReceipts) > 0 {
-		r.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
-		for _, entry := range stored.PSReceipts {
-			rec := &Receipt{}
-			if err := rec.setStatus(entry.Value.PostStateOrStatus); err != nil {
-				return err
-			}
-			rec.CumulativeGasUsed = entry.Value.CumulativeGasUsed
-			rec.Logs = make([]*Log, len(entry.Value.Logs))
-			for i, log := range entry.Value.Logs {
-				rec.Logs[i] = (*Log)(log)
-				rec.Logs[i].PSI = entry.Key
-			}
-			rec.Bloom = CreateBloom(Receipts{rec})
-			r.PSReceipts[entry.Key] = rec
-		}
-	}
-	return nil
 }
 
 type ReceiptForStorageMPSV1 Receipt

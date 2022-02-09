@@ -888,15 +888,11 @@ func (sb *StubBackend) Engine() consensus.Engine {
 	panic("implement me")
 }
 
-func (sb *StubBackend) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
-	return sb.mockAccountExtraDataStateGetter, nil
-}
-
 func (sb *StubBackend) IsAuthorized(authToken *proto.PreAuthenticatedAuthenticationToken, attributes ...*multitenancy.PrivateStateSecurityAttribute) (bool, error) {
 	panic("implement me")
 }
 
-func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.MinimalApiState, header *types.Header) (*vm.EVM, func() error, error) {
+func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
 	sb.getEVMCalled = true
 	vmCtx := core.NewEVMBlockContext(&types.Header{
 		Coinbase:   arbitraryFrom,
@@ -911,7 +907,7 @@ func (sb *StubBackend) GetEVM(ctx context.Context, msg core.Message, state vm.Mi
 	}
 	config := params.QuorumTestChainConfig
 	config.IstanbulBlock = sb.IstanbulBlock
-	return vm.NewEVM(vmCtx, txCtx, publicStateDB, privateStateDB, config, vm.Config{}), vmError, nil
+	return vm.NewEVM(vmCtx, txCtx, publicStateDB, config, vm.Config{}), vmError, nil
 }
 
 func (sb *StubBackend) CurrentBlock() *types.Block {
@@ -996,11 +992,11 @@ func (sb *StubBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rp
 	return sb.CurrentBlock(), nil
 }
 
-func (sb *StubBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 
-func (sb *StubBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.MinimalApiState, *types.Header, error) {
+func (sb *StubBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
 	return &StubMinimalApiState{}, nil, nil
 }
 

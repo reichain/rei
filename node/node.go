@@ -154,7 +154,6 @@ func New(conf *Config) (*Node, error) {
 	}
 
 	// Quorum
-	node.server.Config.EnableNodePermission = node.config.EnableNodePermission
 	node.server.Config.DataDir = node.config.DataDir
 	// End Quorum
 
@@ -704,13 +703,6 @@ func (n *Node) GetSecuritySupports() (tlsConfigSource security.TLSConfigurationS
 		log.Info("Security Plugin is not enabled")
 	}
 	return
-}
-
-// Quorum
-//
-// delegate call to node.Config
-func (n *Node) IsPermissionEnabled() bool {
-	return n.config.IsPermissionEnabled()
 }
 
 // Quorum

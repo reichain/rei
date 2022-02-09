@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/permission/core"
 )
 
 const (
@@ -265,10 +264,6 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	}
 	op := peerToSyncOp(mode, peer)
 	if op.td.Cmp(ourTD) <= 0 {
-		// Quorum
-		// added for permissions changes to indicate node sync up has started
-		// if peer's TD is smaller than ours, no sync will happen
-		core.SetSyncStatus()
 		return nil // We're in sync.
 	}
 	return op

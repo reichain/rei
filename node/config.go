@@ -37,7 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/plugin"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -202,8 +201,6 @@ type Config struct {
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool             `toml:",omitempty"`
 	Plugins             *plugin.Settings `toml:",omitempty"`
-	// Quorum: EnableNodePermission comes from EnableNodePermissionFlag --permissioned.
-	EnableNodePermission bool `toml:",omitempty"`
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
@@ -489,16 +486,6 @@ func (c *Config) ResolvePluginBaseDir() error {
 	}
 	c.Plugins.BaseDir = plugin.EnvironmentAwaredValue(absBaseDir)
 	return nil
-}
-
-// check if smart-contract-based permissioning is enabled by reading `--permissioned` flag and checking permission config file
-func (c *Config) IsPermissionEnabled() bool {
-	fullPath := filepath.Join(c.DataDir, params.PERMISSION_MODEL_CONFIG)
-	if _, err := os.Stat(fullPath); err != nil {
-		log.Warn(fmt.Sprintf("%s file is missing. Smart-contract-based permission service will be disabled", params.PERMISSION_MODEL_CONFIG), "error", err)
-		return false
-	}
-	return true
 }
 
 func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {

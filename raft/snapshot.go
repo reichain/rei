@@ -13,13 +13,13 @@ import (
 	"github.com/coreos/etcd/snap"
 	"github.com/coreos/etcd/wal/walpb"
 	mapset "github.com/deckarep/golang-set"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/permission/core"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -95,8 +95,8 @@ func (pm *ProtocolManager) triggerSnapshot(index uint64) {
 
 	log.Info("start snapshot", "applied index", pm.appliedIndex, "last snapshot index", snapshotIndex)
 
-	//snapData := pm.blockchain.CurrentBlock().Hash().Bytes()
-	//snap, err := pm.raftStorage.CreateSnapshot(pm.appliedIndex, &pm.confState, snapData)
+	// snapData := pm.blockchain.CurrentBlock().Hash().Bytes()
+	// snap, err := pm.raftStorage.CreateSnapshot(pm.appliedIndex, &pm.confState, snapData)
 	snapData := pm.buildSnapshot().toBytes()
 	snap, err := pm.raftStorage.CreateSnapshot(index, &pm.confState, snapData)
 	if err != nil {
@@ -335,8 +335,6 @@ func (pm *ProtocolManager) applyRaftSnapshot(raftSnapshot raftpb.Snapshot) {
 
 		log.Info(chainExtensionMessage, "hash", pm.blockchain.CurrentBlock().Hash())
 	} else {
-		// added for permissions changes to indicate node sync up has started
-		core.SetSyncStatus()
 		log.Info("blockchain is caught up; no need to synchronize")
 	}
 

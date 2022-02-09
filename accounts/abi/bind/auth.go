@@ -69,17 +69,11 @@ func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}
-			// Quorum
-			signer := homesteadSigner
-			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
-			}
-			// / Quorum
-			signature, err := keystore.SignHash(account, signer.Hash(tx).Bytes())
+			signature, err := keystore.SignHash(account, homesteadSigner.Hash(tx).Bytes())
 			if err != nil {
 				return nil, err
 			}
-			return tx.WithSignature(signer, signature)
+			return tx.WithSignature(homesteadSigner, signature)
 		},
 	}, nil
 }
@@ -98,17 +92,11 @@ func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
-			// Quorum
-			signer := homesteadSigner
-			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
-			}
-			// / Quorum
-			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
+			signature, err := crypto.Sign(homesteadSigner.Hash(tx).Bytes(), key)
 			if err != nil {
 				return nil, err
 			}
-			return tx.WithSignature(signer, signature)
+			return tx.WithSignature(homesteadSigner, signature)
 		},
 	}
 }
@@ -141,17 +129,11 @@ func NewKeyStoreTransactorWithChainID(keystore *keystore.KeyStore, account accou
 			if address != account.Address {
 				return nil, ErrNotAuthorized
 			}
-			// Quorum
-			signer := latestSigner
-			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
-			}
-			// / Quorum
-			signature, err := keystore.SignHash(account, signer.Hash(tx).Bytes())
+			signature, err := keystore.SignHash(account, latestSigner.Hash(tx).Bytes())
 			if err != nil {
 				return nil, err
 			}
-			return tx.WithSignature(signer, signature)
+			return tx.WithSignature(latestSigner, signature)
 		},
 	}, nil
 }
@@ -170,17 +152,11 @@ func NewKeyedTransactorWithChainID(key *ecdsa.PrivateKey, chainID *big.Int) (*Tr
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
-			// Quorum
-			signer := latestSigner
-			if tx.IsPrivate() {
-				signer = types.QuorumPrivateTxSigner{}
-			}
-			// / Quorum
-			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
+			signature, err := crypto.Sign(latestSigner.Hash(tx).Bytes(), key)
 			if err != nil {
 				return nil, err
 			}
-			return tx.WithSignature(signer, signature)
+			return tx.WithSignature(latestSigner, signature)
 		},
 	}, nil
 }

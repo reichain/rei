@@ -39,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
-	"github.com/ethereum/go-ethereum/permission/core"
 )
 
 const (
@@ -153,8 +152,6 @@ type Config struct {
 	// whenever a message is sent to or received from a peer
 	EnableMsgEvents bool
 
-	EnableNodePermission bool `toml:",omitempty"`
-
 	DataDir string `toml:",omitempty"`
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
@@ -206,9 +203,6 @@ type Server struct {
 
 	// raft peers info
 	checkPeerInRaft func(*enode.Node) bool
-
-	// permissions - check if node is permissioned
-	isNodePermissionedFunc func(node *enode.Node, nodename string, currentNode string, datadir string, direction string) bool
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -987,43 +981,6 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return newPeerError(errNotInRaftCluster, "id=%s…%s", node[:4], node[len(node)-4:])
 	}
 
-	// START - QUORUM Permissioning
-	currentNode := srv.NodeInfo().ID
-	cnodeName := srv.NodeInfo().Name
-	clog.Trace("Quorum permissioning",
-		"EnableNodePermission", srv.EnableNodePermission,
-		"DataDir", srv.DataDir,
-		"Current Node ID", currentNode,
-		"Node Name", cnodeName,
-		"Dialed Dest", dialDest,
-		"Connection ID", c.node.ID(),
-		"Connection String", c.node.ID().String())
-
-	if srv.EnableNodePermission {
-		clog.Trace("Node Permissioning is Enabled.")
-		nodeId := c.node.ID().String()
-		node := c.node
-		direction := "INCOMING"
-		if dialDest != nil {
-			node = dialDest
-			nodeId = dialDest.ID().String()
-			direction = "OUTGOING"
-			log.Trace("Node Permissioning", "Connection Direction", direction)
-		}
-
-		if srv.isNodePermissionedFunc == nil {
-			if !core.IsNodePermissioned(nodeId, currentNode, srv.DataDir, direction) {
-				return newPeerError(errPermissionDenied, "id=%s…%s %s id=%s…%s", currentNode[:4], currentNode[len(currentNode)-4:], direction, nodeId[:4], nodeId[len(nodeId)-4:])
-			}
-		} else if !srv.isNodePermissionedFunc(node, nodeId, currentNode, srv.DataDir, direction) {
-			return newPeerError(errPermissionDenied, "id=%s…%s %s id=%s…%s", currentNode[:4], currentNode[len(currentNode)-4:], direction, nodeId[:4], nodeId[len(nodeId)-4:])
-		}
-	} else {
-		clog.Trace("Node Permissioning is Disabled.")
-	}
-
-	// END - QUORUM Permissioning
-
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
 		clog.Trace("Rejected peer", "err", err)
@@ -1181,10 +1138,4 @@ func (srv *Server) PeersInfo() []*PeerInfo {
 
 func (srv *Server) SetCheckPeerInRaft(f func(*enode.Node) bool) {
 	srv.checkPeerInRaft = f
-}
-
-func (srv *Server) SetIsNodePermissioned(f func(*enode.Node, string, string, string, string) bool) {
-	if srv.isNodePermissionedFunc == nil {
-		srv.isNodePermissionedFunc = f
-	}
 }

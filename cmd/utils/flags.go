@@ -40,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/fdlimit"
-	http2 "github.com/ethereum/go-ethereum/common/http"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -57,7 +56,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethstats"
-	"github.com/ethereum/go-ethereum/extension"
 	"github.com/ethereum/go-ethereum/graphql"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/internal/flags"
@@ -73,10 +71,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/permission"
-	"github.com/ethereum/go-ethereum/permission/core/types"
 	"github.com/ethereum/go-ethereum/plugin"
-	"github.com/ethereum/go-ethereum/private"
 	"github.com/ethereum/go-ethereum/raft"
 )
 
@@ -806,11 +801,6 @@ var (
 		Usage: "Enable DNS resolution of peers",
 	}
 
-	// Permission
-	EnableNodePermissionFlag = cli.BoolFlag{
-		Name:  "permissioned",
-		Usage: "If enabled, the node will allow only a defined list of nodes to connect",
-	}
 	AllowedFutureBlockTimeFlag = cli.Uint64Flag{
 		Name:  "allowedfutureblocktime",
 		Usage: "Max time (in seconds) from current time allowed for blocks, before they're considered future blocks",
@@ -848,74 +838,6 @@ var (
 		Name:  "istanbul.blockperiod",
 		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
 		Value: ethconfig.Defaults.Istanbul.BlockPeriod,
-	}
-
-	// Revert Reason
-	RevertReasonFlag = cli.BoolFlag{
-		Name:  "revertreason",
-		Usage: "Enable saving revert reason in the transaction receipts for this node.",
-	}
-
-	// Private state cache
-	PrivateCacheTrieJournalFlag = cli.StringFlag{
-		Name:  "private.cache.trie.journal",
-		Usage: "Disk journal directory for private trie cache to survive node restarts",
-		Value: ethconfig.Defaults.PrivateTrieCleanCacheJournal,
-	}
-
-	// Quorum Private Transaction Manager connection options
-	QuorumPTMUnixSocketFlag = DirectoryFlag{
-		Name:  "ptm.socket",
-		Usage: "Path to the ipc file when using unix domain socket for the private transaction manager connection",
-	}
-	QuorumPTMUrlFlag = cli.StringFlag{
-		Name:  "ptm.url",
-		Usage: "URL when using http connection to private transaction manager",
-	}
-	QuorumPTMTimeoutFlag = cli.UintFlag{
-		Name:  "ptm.timeout",
-		Usage: "Timeout (seconds) for the private transaction manager connection. Zero value means timeout disabled.",
-		Value: http2.DefaultConfig.Timeout,
-	}
-	QuorumPTMDialTimeoutFlag = cli.UintFlag{
-		Name:  "ptm.dialtimeout",
-		Usage: "Dial timeout (seconds) for the private transaction manager connection. Zero value means timeout disabled.",
-		Value: http2.DefaultConfig.DialTimeout,
-	}
-	QuorumPTMHttpIdleTimeoutFlag = cli.UintFlag{
-		Name:  "ptm.http.idletimeout",
-		Usage: "Idle timeout (seconds) for the private transaction manager connection. Zero value means timeout disabled.",
-		Value: http2.DefaultConfig.HttpIdleConnTimeout,
-	}
-	QuorumPTMHttpWriteBufferSizeFlag = cli.IntFlag{
-		Name:  "ptm.http.writebuffersize",
-		Usage: "Size of the write buffer (bytes) for the private transaction manager connection. Zero value uses http.Transport default.",
-		Value: 0,
-	}
-	QuorumPTMHttpReadBufferSizeFlag = cli.IntFlag{
-		Name:  "ptm.http.readbuffersize",
-		Usage: "Size of the read buffer (bytes) for the private transaction manager connection. Zero value uses http.Transport default.",
-		Value: 0,
-	}
-	QuorumPTMTlsModeFlag = cli.StringFlag{
-		Name:  "ptm.tls.mode",
-		Usage: `If "off" then TLS disabled (default). If "strict" then will use TLS for http connection to private transaction manager`,
-	}
-	QuorumPTMTlsRootCaFlag = DirectoryFlag{
-		Name:  "ptm.tls.rootca",
-		Usage: "Path to file containing root CA certificate for TLS connection to private transaction manager (defaults to host's certificates)",
-	}
-	QuorumPTMTlsClientCertFlag = DirectoryFlag{
-		Name:  "ptm.tls.clientcert",
-		Usage: "Path to file containing client certificate (or chain of certs) for TLS connection to private transaction manager",
-	}
-	QuorumPTMTlsClientKeyFlag = DirectoryFlag{
-		Name:  "ptm.tls.clientkey",
-		Usage: "Path to file containing client's private key for TLS connection to private transaction manager",
-	}
-	QuorumPTMTlsInsecureSkipVerify = cli.BoolFlag{
-		Name:  "ptm.tls.insecureskipverify",
-		Usage: "Disable verification of server's TLS certificate on connection to private transaction manager",
 	}
 )
 
@@ -1374,11 +1296,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
 	}
-
-	// Quorum
-	if ctx.GlobalIsSet(EnableNodePermissionFlag.Name) {
-		cfg.EnableNodePermission = ctx.GlobalBool(EnableNodePermissionFlag.Name)
-	}
 }
 
 func setSmartCard(ctx *cli.Context, cfg *node.Config) {
@@ -1623,15 +1540,8 @@ func setRaft(ctx *cli.Context, cfg *eth.Config) {
 
 func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {
 	cfg.EVMCallTimeOut = time.Duration(ctx.GlobalInt(EVMCallTimeOutFlag.Name)) * time.Second
-	cfg.QuorumChainConfig = core.NewQuorumChainConfig(ctx.GlobalBool(RevertReasonFlag.Name))
 	setIstanbul(ctx, cfg)
 	setRaft(ctx, cfg)
-	if ctx.GlobalIsSet(PrivateCacheTrieJournalFlag.Name) {
-		cfg.PrivateTrieCleanCacheJournal = ctx.GlobalString(PrivateCacheTrieJournalFlag.Name)
-	}
-	if ctx.GlobalString(CacheTrieJournalFlag.Name) == cfg.PrivateTrieCleanCacheJournal {
-		return fmt.Errorf("configuration collision with '%s' and '%s' that must be different", CacheTrieJournalFlag.Name, PrivateCacheTrieJournalFlag.Name)
-	}
 	return nil
 }
 
@@ -1948,20 +1858,6 @@ func RegisterPluginService(stack *node.Node, cfg *node.Config, skipVerify bool, 
 	log.Info("plugin service registered")
 }
 
-// Configure smart-contract-based permissioning service
-func RegisterPermissionService(stack *node.Node, useDns bool, chainID *big.Int) {
-	permissionConfig, err := types.ParsePermissionConfig(stack.DataDir())
-	if err != nil {
-		Fatalf("loading of %s failed due to %v", params.PERMISSION_MODEL_CONFIG, err)
-	}
-	// start the permissions management service
-	_, err = permission.NewQuorumPermissionCtrl(stack, &permissionConfig, useDns, chainID)
-	if err != nil {
-		Fatalf("failed to load the permission contracts as given in %s due to %v", params.PERMISSION_MODEL_CONFIG, err)
-	}
-	log.Info("permission service registered")
-}
-
 func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Config, ethService *eth.Ethereum) {
 	raftLogDir := nodeCfg.RaftLogDir // default value is set either 'datadir' or 'raftlogdir'
 	joinExistingId := ctx.GlobalInt(RaftJoinExistingFlag.Name)
@@ -2007,15 +1903,6 @@ func RegisterRaftService(stack *node.Node, ctx *cli.Context, nodeCfg *node.Confi
 	}
 
 	log.Info("raft service registered")
-}
-
-func RegisterExtensionService(stack *node.Node, ethService *eth.Ethereum) {
-	_, err := extension.NewServicesFactory(stack, private.P, ethService)
-	if err != nil {
-		Fatalf("Failed to register the Extension service: %v", err)
-	}
-
-	log.Info("extension service registered")
 }
 
 func SetupMetrics(ctx *cli.Context) {
@@ -2162,7 +2049,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readOnly bool, useExist bool)
 		SnapshotLimit:       ethconfig.Defaults.SnapshotCache,
 		Preimages:           ctx.GlobalBool(CachePreimagesFlag.Name),
 	}
-	if true || cache.TrieDirtyDisabled && !cache.Preimages { // TODO: Quorum; force preimages for contract extension and dump of states compatibility, until a fix is found
+	if cache.TrieDirtyDisabled && !cache.Preimages {
 		cache.Preimages = true
 		log.Info("Enabling recording of key preimages since archive mode is used")
 	}
@@ -2181,8 +2068,8 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readOnly bool, useExist bool)
 		l := ctx.GlobalUint64(TxLookupLimitFlag.Name)
 		limit = &l
 	}
-	// TODO should multiple private states work with import/export/inspect commands
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, limit, nil)
+
+	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, limit)
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}

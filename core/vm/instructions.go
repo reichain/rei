@@ -261,7 +261,7 @@ func opBalance(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	slot := callContext.stack.peek()
 	addr := common.Address(slot.Bytes20())
 	// Quorum: get public/private state db based on addr
-	balance := getDualState(interpreter.evm, addr).GetBalance(addr)
+	balance := interpreter.evm.StateDB.GetBalance(addr)
 	slot.SetFromBig(balance)
 	return nil, nil
 }
@@ -346,7 +346,7 @@ func opExtCodeSize(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx
 	slot := callContext.stack.peek()
 	addr := slot.Bytes20()
 	// Quorum: get public/private state db based on addr
-	slot.SetUint64(uint64(getDualState(interpreter.evm, addr).GetCodeSize(addr)))
+	slot.SetUint64(uint64(interpreter.evm.StateDB.GetCodeSize(addr)))
 	return nil, nil
 }
 
@@ -386,7 +386,7 @@ func opExtCodeCopy(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx
 		uint64CodeOffset = 0xffffffffffffffff
 	}
 	addr := common.Address(a.Bytes20())
-	codeCopy := getData(getDualState(interpreter.evm, addr).GetCode(addr), uint64CodeOffset, length.Uint64())
+	codeCopy := getData(interpreter.evm.StateDB.GetCode(addr), uint64CodeOffset, length.Uint64())
 	// Quorum: get public/private state db based on addr
 	callContext.memory.Set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
@@ -422,11 +422,10 @@ func opExtCodeCopy(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx
 func opExtCodeHash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	slot := callContext.stack.peek()
 	address := common.Address(slot.Bytes20())
-	stateDB := getDualState(interpreter.evm, address)
-	if stateDB.Empty(address) {
+	if interpreter.evm.StateDB.Empty(address) {
 		slot.Clear()
 	} else {
-		slot.SetBytes(stateDB.GetCodeHash(address).Bytes())
+		slot.SetBytes(interpreter.evm.StateDB.GetCodeHash(address).Bytes())
 	}
 	return nil, nil
 }
@@ -515,8 +514,7 @@ func opMstore8(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
-	// Quorum: get public/private state db based on addr
-	val := getDualState(interpreter.evm, callContext.contract.Address()).GetState(callContext.contract.Address(), hash)
+	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
@@ -524,9 +522,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	loc := callContext.stack.pop()
 	val := callContext.stack.pop()
-	// Quorum: get public/private state db based on addr
-	getDualState(interpreter.evm, callContext.contract.Address()).SetState(callContext.contract.Address(),
-		loc.Bytes32(), val.Bytes32())
+	interpreter.evm.StateDB.SetState(callContext.contract.Address(), loc.Bytes32(), val.Bytes32())
 	return nil, nil
 }
 
@@ -583,7 +579,7 @@ func opReturnSub(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) 
 	}
 	// Other than the check that the return stack is not empty, there is no
 	// need to validate the pc from 'returns', since we only ever push valid
-	//values onto it via jumpsub.
+	// values onto it via jumpsub.
 	*pc = uint64(callContext.rstack.pop()) + 1
 	return nil, nil
 }
@@ -617,7 +613,7 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	stackvalue := size
 
 	callContext.contract.UseGas(gas)
-	//TODO: use uint256.Int instead of converting with toBig()
+	// TODO: use uint256.Int instead of converting with toBig()
 	var bigVal = big0
 	if !value.IsZero() {
 		bigVal = value.ToBig()
@@ -658,7 +654,7 @@ func opCreate2(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	callContext.contract.UseGas(gas)
 	// reuse size int for stackvalue
 	stackvalue := size
-	//TODO: use uint256.Int instead of converting with toBig()
+	// TODO: use uint256.Int instead of converting with toBig()
 	bigEndowment := big0
 	if !endowment.IsZero() {
 		bigEndowment = endowment.ToBig()
@@ -693,7 +689,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	args := callContext.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
 	var bigVal = big0
-	//TODO: use uint256.Int instead of converting with toBig()
+	// TODO: use uint256.Int instead of converting with toBig()
 	// By using big0 here, we save an alloc for the most common case (non-ether-transferring contract calls),
 	// but it would make more sense to extend the usage of uint256.Int
 	if !value.IsZero() {
@@ -730,7 +726,7 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 	// Get arguments from the memory.
 	args := callContext.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
-	//TODO: use uint256.Int instead of converting with toBig()
+	// TODO: use uint256.Int instead of converting with toBig()
 	var bigVal = big0
 	if !value.IsZero() {
 		gas += params.CallStipend
@@ -829,11 +825,9 @@ func opStop(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 
 func opSuicide(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	beneficiary := callContext.stack.pop()
-	// Quorum: get public/private state db based on addr
-	db := getDualState(interpreter.evm, callContext.contract.Address())
-	balance := db.GetBalance(callContext.contract.Address())
-	db.AddBalance(beneficiary.Bytes20(), balance)
-	db.Suicide(callContext.contract.Address())
+	balance := interpreter.evm.StateDB.GetBalance(callContext.contract.Address())
+	interpreter.evm.StateDB.AddBalance(beneficiary.Bytes20(), balance)
+	interpreter.evm.StateDB.Suicide(callContext.contract.Address())
 	return nil, nil
 }
 

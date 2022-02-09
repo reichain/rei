@@ -35,7 +35,7 @@ func (cg *callHelper) TxNonce(addr common.Address) uint64 {
 
 // MakeCall makes does a call to the recipient using the given input. It can switch between private and public
 // by setting the private boolean flag. It returns an error if the call failed.
-func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Address, input []byte) error {
+func (cg *callHelper) MakeCall(key *ecdsa.PrivateKey, to common.Address, input []byte) error {
 	var (
 		from = crypto.PubkeyToAddress(key.PublicKey)
 		err  error
@@ -48,9 +48,6 @@ func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Ad
 	cg.header.GasLimit = 4700000
 
 	signer := types.MakeSigner(params.QuorumTestChainConfig, cg.header.Number)
-	if private {
-		signer = types.QuorumPrivateTxSigner{}
-	}
 
 	tx, err := types.SignTx(types.NewTransaction(cg.TxNonce(from), to, new(big.Int), 1000000, new(big.Int), input), signer, key)
 
@@ -63,15 +60,12 @@ func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Ad
 		return err
 	}
 
-	publicState, privateState := cg.PublicState, cg.PrivateState
-	if !private {
-		privateState = publicState
-	}
+	publicState := cg.PublicState
 	// TODO(joel): can we just pass nil instead of bc?
-	bc, _ := NewBlockChain(cg.db, nil, params.QuorumTestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, nil)
+	bc, _ := NewBlockChain(cg.db, nil, params.QuorumTestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
 	txContext := NewEVMTxContext(msg)
 	evmContext := NewEVMBlockContext(&cg.header, bc, &from)
-	vmenv := vm.NewEVM(evmContext, txContext, publicState, privateState, params.QuorumTestChainConfig, vm.Config{})
+	vmenv := vm.NewEVM(evmContext, txContext, publicState, params.QuorumTestChainConfig, vm.Config{})
 	sender := vm.AccountRef(msg.From())
 	vmenv.Call(sender, to, msg.Data(), 100000000, new(big.Int))
 	return err

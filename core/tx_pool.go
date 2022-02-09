@@ -26,15 +26,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
-	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
-	pcore "github.com/ethereum/go-ethereum/permission/core"
-	"github.com/ethereum/go-ethereum/private"
 )
 
 const (
@@ -140,7 +137,7 @@ const (
 type blockChain interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	StateAt(root common.Hash) (*state.StateDB, mps.PrivateStateRepository, error)
+	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
@@ -568,26 +565,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
 		return ErrInvalidSender
-	}
-	if pool.chainconfig.IsQuorum {
-		// Quorum
-		if tx.IsPrivacyMarker() {
-			innerTx, _, _, _ := private.FetchPrivateTransaction(tx.Data())
-			if innerTx != nil {
-				if err := pool.validateTx(innerTx, local); err != nil {
-					return err
-				}
-			}
-		}
-
-		// Ether value is not currently supported on private transactions
-		if tx.IsPrivate() && (len(tx.Data()) == 0 || tx.Value().Sign() != 0) {
-			return ErrEtherValueUnsupported
-		}
-		// Quorum - check if the sender account is authorized to perform the transaction
-		if err := pcore.CheckAccountPermission(tx.From(), tx.To(), tx.Value(), tx.Data(), tx.Gas(), tx.GasPrice()); err != nil {
-			return err
-		}
 	}
 
 	// Drop non-local transactions under our own minimal accepted gas price
@@ -1234,7 +1211,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock().Header() // Special case during testing
 	}
-	statedb, _, err := pool.chain.StateAt(newHead.Root)
+	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
 		log.Error("Failed to reset txpool state", "err", err)
 		return

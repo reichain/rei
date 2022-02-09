@@ -32,10 +32,6 @@ func UpgradeDB(db ethdb.Database, chain chainReader) error {
 	if err != nil {
 		return err
 	}
-	emptyState, err := mpsRepo.DefaultState()
-	if err != nil {
-		return err
-	}
 	// pre-populate with dummy one as the state root is derived from block root hash
 	privateState := &managedState{}
 	mpsRepo.managedStates[types.DefaultPrivateStateIdentifier] = privateState
@@ -44,46 +40,6 @@ func UpgradeDB(db ethdb.Database, chain chainReader) error {
 		// TODO consider periodic reports instead of logging about each block
 		fmt.Printf("Processing block %v with hash %v\n", idx, header.Hash().Hex())
 		block := chain.GetBlock(header.Hash(), header.Number.Uint64())
-		// update Empty Private State
-		receipts := chain.GetReceiptsByHash(header.Hash())
-		receiptsUpdated := false
-		for txIdx, tx := range block.Transactions() {
-			if tx.IsPrivate() && tx.To() == nil {
-				// this is a contract creation transaction
-				receipt := receipts[txIdx]
-				accountAddress := receipt.ContractAddress
-				emptyState.CreateAccount(accountAddress)
-				emptyState.SetNonce(accountAddress, 1)
-
-				emptyReceipt := &types.Receipt{
-					PostState:         receipt.PostState,
-					Status:            1,
-					CumulativeGasUsed: receipt.CumulativeGasUsed,
-					Bloom:             types.Bloom{},
-					Logs:              nil,
-					TxHash:            receipt.TxHash,
-					ContractAddress:   receipt.ContractAddress,
-					GasUsed:           receipt.GasUsed,
-					BlockHash:         receipt.BlockHash,
-					BlockNumber:       receipt.BlockNumber,
-					TransactionIndex:  receipt.TransactionIndex,
-				}
-				emptyReceipt.Bloom = types.CreateBloom(types.Receipts{emptyReceipt})
-				emptyReceipt.PSReceipts = map[types.PrivateStateIdentifier]*types.Receipt{
-					types.DefaultPrivateStateIdentifier: receipt,
-					types.EmptyPrivateStateIdentifier:   emptyReceipt}
-				receipts[txIdx] = emptyReceipt
-				receiptsUpdated = true
-			}
-		}
-		if receiptsUpdated {
-			batch := db.NewBatch()
-			rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-			err := batch.Write()
-			if err != nil {
-				return err
-			}
-		}
 		// update trie of private state roots and new mapping with block root hash
 		privateState.stateRootProviderFunc = func(_ bool) (common.Hash, error) {
 			return rawdb.GetPrivateStateRoot(db, header.Root), nil

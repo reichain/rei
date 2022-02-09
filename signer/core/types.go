@@ -51,7 +51,7 @@ func (vs *ValidationMessages) Info(msg string) {
 	vs.Messages = append(vs.Messages, ValidationInfo{INFO, msg})
 }
 
-/// getWarnings returns an error with all messages of type WARN of above, or nil if no warnings were present
+// / getWarnings returns an error with all messages of type WARN of above, or nil if no warnings were present
 func (v *ValidationMessages) getWarnings() error {
 	var messages []string
 	for _, msg := range v.Messages {
@@ -76,9 +76,6 @@ type SendTxArgs struct {
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input,omitempty"`
-	// QUORUM
-	IsPrivate bool `json:"isPrivate,omitempty"`
-	// END QUORUM
 }
 
 func (args SendTxArgs) String() string {
@@ -101,13 +98,5 @@ func (args *SendTxArgs) toTransaction() (tx *types.Transaction) {
 	} else {
 		tx = types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input)
 	}
-	if args.IsPrivate {
-		tx.SetPrivate()
-	}
 	return
-}
-
-// Quorum
-func (args SendTxArgs) isPrivacyMarker() bool {
-	return args.To != nil && args.To.Address() == common.QuorumPrivacyPrecompileContractAddress()
 }

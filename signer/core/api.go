@@ -236,7 +236,7 @@ type (
 	}
 	// SignTxResponse result from SignTxRequest
 	SignTxResponse struct {
-		//The UI may make changes to the TX
+		// The UI may make changes to the TX
 		Transaction SendTxArgs `json:"transaction"`
 		Approved    bool       `json:"approved"`
 	}
@@ -535,13 +535,9 @@ func (api *SignerAPI) SignTransaction(ctx context.Context, args SendTxArgs, meth
 		result SignTxResponse
 		msgs   *ValidationMessages
 	)
-	if args.IsPrivate || args.isPrivacyMarker() {
-		msgs = new(ValidationMessages)
-	} else {
-		msgs, err = api.validator.ValidateTransaction(methodSelector, &args)
-		if err != nil {
-			return nil, err
-		}
+	msgs, err = api.validator.ValidateTransaction(methodSelector, &args)
+	if err != nil {
+		return nil, err
 	}
 
 	// If we are in 'rejectMode', then reject rather than show the user warnings
