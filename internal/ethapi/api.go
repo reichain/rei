@@ -49,7 +49,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/multitenancy"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/private"
@@ -1930,39 +1929,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction, pr
 	if err != nil {
 		return common.Hash{}, err
 	}
-	// Quorum
-	// Need to do authorization check for Ethereum Account being used in signing.
-	// We only care about private transactions (or the private transaction relating to a privacy marker)
-	if token, ok := b.SupportsMultitenancy(ctx); ok {
-		tx := tx
-		// If we are sending a Privacy Marker Transaction, then get the private txn details
-		if tx.IsPrivacyMarker() {
-			tx, _, _, err = private.FetchPrivateTransaction(tx.Data())
-			if err != nil {
-				return common.Hash{}, err
-			}
-		}
-		innerFrom, err := types.Sender(signer, tx)
-		if err != nil {
-			return common.Hash{}, err
-		}
 
-		if tx.IsPrivate() {
-			psm, err := b.PSMR().ResolveForUserContext(ctx)
-			if err != nil {
-				return common.Hash{}, err
-			}
-			eoaSecAttr := (&multitenancy.PrivateStateSecurityAttribute{}).WithPSI(psm.ID).WithSelfEOAIf(isRaw, innerFrom)
-			psm, err = b.PSMR().ResolveForManagedParty(privateFrom)
-			if err != nil {
-				return common.Hash{}, err
-			}
-			privateFromSecAttr := (&multitenancy.PrivateStateSecurityAttribute{}).WithPSI(psm.ID).WithSelfEOAIf(isRaw, innerFrom)
-			if isAuthorized, _ := multitenancy.IsAuthorized(token, eoaSecAttr, privateFromSecAttr); !isAuthorized {
-				return common.Hash{}, multitenancy.ErrNotAuthorized
-			}
-		}
-	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}

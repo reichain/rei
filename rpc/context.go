@@ -4,8 +4,9 @@ package rpc
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type securityContextKey string
@@ -16,8 +17,6 @@ const (
 	HttpPrivateStateIdentifierHeader     = "Quorum-PSI"
 	QueryPrivateStateIdentifierParamName = "PSI"
 	EnvVarPrivateStateIdentifier         = "QUORUM_PSI"
-	// this key is set by server to indicate if server supports mulitenancy
-	ctxIsMultitenant = securityContextKey("IS_MULTITENANT")
 	// this key is set into the secured context to indicate
 	// the authorized private state being operated on for the request.
 	// the value MUST BE OF TYPE types.PrivateStateIdentifier
@@ -32,20 +31,6 @@ const (
 	ctxAuthenticationError   = securityContextKey("AUTHENTICATION_ERROR")   // key to save error during authentication before processing the request body
 	ctxPreauthenticatedToken = securityContextKey("PREAUTHENTICATED_TOKEN") // key to save the preauthenticated token once authenticated
 )
-
-// WithIsMultitenant populates ctx with ctxIsMultitenant key and provided value
-func WithIsMultitenant(ctx context.Context, isMultitenant bool) SecurityContext {
-	return context.WithValue(ctx, ctxIsMultitenant, isMultitenant)
-}
-
-// IsMultitenantFromContext returns bool value from ctx with ctxIsMultitenant key
-// and returns false if value does not exist in the ctx
-func IsMultitenantFromContext(ctx SecurityContext) bool {
-	if f, ok := ctx.Value(ctxIsMultitenant).(bool); ok {
-		return f
-	}
-	return false
-}
 
 // WithPrivateStateIdentifier populates ctx with ctxPrivateStateIdentifier key and provided value
 func WithPrivateStateIdentifier(ctx context.Context, psi types.PrivateStateIdentifier) SecurityContext {

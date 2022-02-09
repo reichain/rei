@@ -441,19 +441,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 }
 
 // Quorum
-// Decorates NewBlockChain with multitenancy flag
-func NewMultitenantBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, txLookupLimit *uint64, quorumChainConfig *QuorumChainConfig) (*BlockChain, error) {
-	if quorumChainConfig == nil {
-		quorumChainConfig = &QuorumChainConfig{multiTenantEnabled: true}
-	} else {
-		quorumChainConfig.multiTenantEnabled = true
-	}
-	bc, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve, txLookupLimit, quorumChainConfig)
-	if err != nil {
-		return nil, err
-	}
-	return bc, err
-}
 
 func (bc *BlockChain) PrivateStateManager() mps.PrivateStateManager {
 	return bc.privateStateManager
@@ -2783,11 +2770,6 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
-}
-
-// Quorum
-func (bc *BlockChain) SupportsMultitenancy(context.Context) bool {
-	return bc.quorumConfig.MultiTenantEnabled()
 }
 
 // PopulateSetPrivateState function pointer for updating private state

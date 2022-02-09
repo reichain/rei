@@ -29,10 +29,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/rs/cors"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/plugin/security"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/rs/cors"
 )
 
 // httpConfig is the JSON-RPC/HTTP configuration.
@@ -79,10 +80,6 @@ type httpServer struct {
 	port     int
 
 	handlerNames map[string]string
-
-	// Quorum
-	// isMultitenant determines if the server supports mutlitenancy
-	isMultitenant bool
 }
 
 func newHTTPServer(log log.Logger, timeouts rpc.HTTPTimeouts) *httpServer {
@@ -90,13 +87,6 @@ func newHTTPServer(log log.Logger, timeouts rpc.HTTPTimeouts) *httpServer {
 
 	h.httpHandler.Store((*rpcHandler)(nil))
 	h.wsHandler.Store((*rpcHandler)(nil))
-	return h
-}
-
-// Quorum
-// withMultitenancy indicates if this server supports multitenancy
-func (h *httpServer) withMultitenancy(b bool) *httpServer {
-	h.isMultitenant = b
 	return h
 }
 
@@ -294,7 +284,7 @@ func (h *httpServer) enableRPC(apis []rpc.API, config httpConfig, authManager se
 	}
 
 	// Create RPC server and handler.
-	srv := rpc.NewProtectedServer(authManager, h.isMultitenant)
+	srv := rpc.NewProtectedServer(authManager)
 	if err := RegisterApisFromWhitelist(apis, config.Modules, srv, false); err != nil {
 		return err
 	}
@@ -327,7 +317,7 @@ func (h *httpServer) enableWS(apis []rpc.API, config wsConfig, authManager secur
 	}
 
 	// Create RPC server and handler.
-	srv := rpc.NewProtectedServer(authManager, h.isMultitenant)
+	srv := rpc.NewProtectedServer(authManager)
 	if err := RegisterApisFromWhitelist(apis, config.Modules, srv, false); err != nil {
 		return err
 	}
@@ -493,21 +483,10 @@ type ipcServer struct {
 	mu       sync.Mutex
 	listener net.Listener
 	srv      *rpc.Server
-
-	// Quorum
-	// isMultitenant determines if the server supports mutlitenancy
-	isMultitenant bool
 }
 
 func newIPCServer(log log.Logger, endpoint string) *ipcServer {
-	return &ipcServer{log: log, endpoint: endpoint, isMultitenant: false}
-}
-
-// Quorum
-// withMultitenancy indicates if this server supports multitenancy
-func (is *ipcServer) withMultitenancy(b bool) *ipcServer {
-	is.isMultitenant = b
-	return is
+	return &ipcServer{log: log, endpoint: endpoint}
 }
 
 // Start starts the httpServer's http.Server
@@ -523,8 +502,7 @@ func (is *ipcServer) start(apis []rpc.API) error {
 		is.log.Warn("IPC opening failed", "url", is.endpoint, "error", err)
 		return err
 	}
-	srv.EnableMultitenancy(is.isMultitenant)
-	is.log.Info("IPC endpoint opened", "url", is.endpoint, "isMultitenant", is.isMultitenant)
+	is.log.Info("IPC endpoint opened", "url", is.endpoint)
 	is.listener, is.srv = listener, srv
 	return nil
 }

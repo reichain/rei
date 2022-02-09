@@ -888,10 +888,6 @@ func (sb *StubBackend) Engine() consensus.Engine {
 	panic("implement me")
 }
 
-func (sb *StubBackend) SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
-	return nil, false
-}
-
 func (sb *StubBackend) AccountExtraDataStateGetterByNumber(context.Context, rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
 	return sb.mockAccountExtraDataStateGetter, nil
 }

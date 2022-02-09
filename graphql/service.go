@@ -20,13 +20,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/graph-gophers/graphql-go"
+
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/plugin/security"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/graph-gophers/graphql-go"
 )
 
 type handler struct {
@@ -96,7 +97,6 @@ func newHandler(stack *node.Node, backend ethapi.Backend, cors, vhosts []string)
 	}
 	handler := &secureHandler{
 		authManagerFunc: authManagerFunc,
-		isMultitenant:   stack.Config().EnableMultitenancy,
 		protectedMethod: "graphql_*", // this follows JSON RPC convention using namespace graphql
 		delegate:        node.NewHTTPHandlerStack(h, cors, vhosts),
 	}
@@ -126,7 +126,6 @@ type secureHandler struct {
 	delegate        http.Handler
 	protectedMethod string
 	authManagerFunc security.AuthenticationManagerDeferFunc
-	isMultitenant   bool
 }
 
 func (h *secureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -135,9 +134,8 @@ func (h *secureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	securityContext := rpc.WithIsMultitenant(r.Context(), h.isMultitenant)
 	// authentication check
-	securityContext = rpc.AuthenticateHttpRequest(securityContext, r, authManager)
+	securityContext := rpc.AuthenticateHttpRequest(r.Context(), r, authManager)
 	// authorization check
 	securedCtx, err := rpc.SecureCall(&securityContextHolder{ctx: securityContext}, h.protectedMethod)
 	if err != nil {

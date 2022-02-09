@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/multitenancy"
-	"github.com/ethereum/go-ethereum/plugin/security"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/plugin/security"
 )
 
 type securityContextSupport interface {
@@ -104,30 +104,6 @@ func SecureCall(resolver SecurityContextResolver, method string) (context.Contex
 			log.Warn("unsupported method when performing authorization check", "method", method)
 		} else if err := verifyAccess(elem[0], elem[1], authToken.Authorities); err != nil {
 			return nil, err
-		}
-		// authorization check for PSI when multitenancy is enabled
-		if isMultitenant := IsMultitenantFromContext(secCtx); isMultitenant {
-			var authorizedPSI types.PrivateStateIdentifier
-			var err error
-			// does user provide PSI in the request
-			if requestPSI, ok := secCtx.Value(ctxRequestPrivateStateIdentifier).(types.PrivateStateIdentifier); !ok {
-				// let's try to extract from token
-				authorizedPSI, err = multitenancy.ExtractPSI(authToken)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				isAuthorized, err := multitenancy.IsPSIAuthorized(authToken, requestPSI)
-				if err != nil {
-					return nil, err
-				}
-				if !isAuthorized {
-					return nil, multitenancy.ErrNotAuthorized
-				}
-				authorizedPSI = requestPSI
-			}
-			secCtx = WithPrivateStateIdentifier(secCtx, authorizedPSI)
-			log.Debug("Determined authorized PSI", "psi", authorizedPSI)
 		}
 	}
 	return secCtx, nil

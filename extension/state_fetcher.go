@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -31,7 +29,6 @@ type APIBackendHelper interface {
 	AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error)
 	PSMR() mps.PrivateStateMetadataResolver
 	CurrentBlock() *types.Block
-	SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool)
 }
 
 // StateFetcher manages retrieving state from the database and returning it in

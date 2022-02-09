@@ -167,7 +167,6 @@ var (
 		utils.PluginPublicKeyFlag,
 		utils.AllowedFutureBlockTimeFlag,
 		utils.EVMCallTimeOutFlag,
-		utils.MultitenancyFlag,
 		utils.RevertReasonFlag,
 		utils.QuorumPTMUnixSocketFlag,
 		utils.QuorumPTMUrlFlag,
@@ -400,12 +399,6 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		utils.Fatalf("Failed to attach to self: %v", err)
 	}
 	ethClient := ethclient.NewClient(rpcClient)
-
-	// Quorum
-	if ctx.GlobalBool(utils.MultitenancyFlag.Name) && !stack.PluginManager().IsEnabled(plugin.SecurityPluginInterfaceName) {
-		utils.Fatalf("multitenancy requires RPC Security Plugin to be configured")
-	}
-	// End Quorum
 
 	go func() {
 		// Open any wallets already attached

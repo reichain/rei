@@ -134,13 +134,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	newChainFunc := light.NewLightChain
-	if config.QuorumChainConfig.MultiTenantEnabled() {
-		newChainFunc = light.NewMultitenantLightChain
-	}
 	// Note: NewLightChain adds the trusted checkpoint so it needs an ODR with
 	// indexers already set but not started yet
-	if leth.blockchain, err = newChainFunc(leth.odr, leth.chainConfig, leth.engine, checkpoint); err != nil {
+	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine, checkpoint); err != nil {
 		return nil, err
 	}
 	leth.chainReader = leth.blockchain

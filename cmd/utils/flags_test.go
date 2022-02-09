@@ -201,8 +201,6 @@ func TestQuorumConfigFlags(t *testing.T) {
 
 	fs.Int(EVMCallTimeOutFlag.Name, 0, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(EVMCallTimeOutFlag.Name, strconv.Itoa(12)))
-	fs.Bool(MultitenancyFlag.Name, false, "")
-	assert.NoError(t, arbitraryCLIContext.GlobalSet(MultitenancyFlag.Name, "true"))
 	fs.Uint64(IstanbulRequestTimeoutFlag.Name, 0, "")
 	assert.NoError(t, arbitraryCLIContext.GlobalSet(IstanbulRequestTimeoutFlag.Name, "23"))
 	fs.Uint64(IstanbulBlockPeriodFlag.Name, 0, "")
@@ -213,10 +211,8 @@ func TestQuorumConfigFlags(t *testing.T) {
 	require.NoError(t, setQuorumConfig(arbitraryCLIContext, arbitraryEthConfig))
 
 	assert.True(t, arbitraryCLIContext.GlobalIsSet(EVMCallTimeOutFlag.Name), "EVMCallTimeOutFlag not set")
-	assert.True(t, arbitraryCLIContext.GlobalIsSet(MultitenancyFlag.Name), "MultitenancyFlag not set")
 
 	assert.Equal(t, 12*time.Second, arbitraryEthConfig.EVMCallTimeOut, "EVMCallTimeOut value is incorrect")
-	assert.Equal(t, true, arbitraryEthConfig.QuorumChainConfig.MultiTenantEnabled(), "MultitenancyFlag value is incorrect")
 	assert.Equal(t, uint64(23), arbitraryEthConfig.Istanbul.RequestTimeout, "IstanbulRequestTimeoutFlag value is incorrect")
 	assert.Equal(t, uint64(34), arbitraryEthConfig.Istanbul.BlockPeriod, "IstanbulBlockPeriodFlag value is incorrect")
 	assert.Equal(t, true, arbitraryEthConfig.RaftMode, "RaftModeFlag value is incorrect")

@@ -1,8 +1,6 @@
 package extension
 
 import (
-	"context"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/extension/privacyExtension"
@@ -36,8 +34,6 @@ func NewServicesFactory(stack *node.Node, ptm private.PrivateTransactionManager,
 	}
 	factory.backendService = backendService
 
-	isMultitenant := ethService.BlockChain().SupportsMultitenancy(context.Background())
-	privacyExtension.DefaultExtensionHandler.SupportMultitenancy(isMultitenant)
 	privacyExtension.DefaultExtensionHandler.SetPSMR(ethService.BlockChain().PrivateStateManager())
 
 	ethService.BlockChain().PopulateSetPrivateState(privacyExtension.DefaultExtensionHandler.CheckExtensionAndSetPrivateState)

@@ -27,6 +27,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/prometheus/tsdb/fileutil"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -37,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/plugin"
 	"github.com/ethereum/go-ethereum/plugin/security"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/prometheus/tsdb/fileutil"
 )
 
 // Node is a container on which services can be registered.
@@ -105,7 +106,7 @@ func New(conf *Config) (*Node, error) {
 
 	node := &Node{
 		config:        conf,
-		inprocHandler: rpc.NewProtectedServer(nil, conf.EnableMultitenancy),
+		inprocHandler: rpc.NewProtectedServer(nil),
 		eventmux:      new(event.TypeMux),
 		log:           conf.Logger,
 		stop:          make(chan struct{}),
@@ -158,9 +159,9 @@ func New(conf *Config) (*Node, error) {
 	// End Quorum
 
 	// Configure RPC servers.
-	node.http = newHTTPServer(node.log, conf.HTTPTimeouts).withMultitenancy(node.config.EnableMultitenancy)
-	node.ws = newHTTPServer(node.log, rpc.DefaultHTTPTimeouts).withMultitenancy(node.config.EnableMultitenancy)
-	node.ipc = newIPCServer(node.log, conf.IPCEndpoint()).withMultitenancy(node.config.EnableMultitenancy)
+	node.http = newHTTPServer(node.log, conf.HTTPTimeouts)
+	node.ws = newHTTPServer(node.log, rpc.DefaultHTTPTimeouts)
+	node.ipc = newIPCServer(node.log, conf.IPCEndpoint())
 
 	return node, nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/multitenancy"
 	"github.com/ethereum/go-ethereum/permission/core"
 )
 
@@ -118,22 +117,6 @@ func (api *PrivateExtensionAPI) checkIfPrivateStateExists(psi types.PrivateState
 }
 
 func (api *PrivateExtensionAPI) doMultiTenantChecks(ctx context.Context, address common.Address, txa ethapi.SendTxArgs) error {
-	backendHelper := api.privacyService.apiBackendHelper
-	if token, ok := backendHelper.SupportsMultitenancy(ctx); ok {
-		psm, err := backendHelper.PSMR().ResolveForUserContext(ctx)
-		if err != nil {
-			return err
-		}
-		eoaSecAttr := (&multitenancy.PrivateStateSecurityAttribute{}).WithPSI(psm.ID).WithNodeEOA(address)
-		psm, err = backendHelper.PSMR().ResolveForManagedParty(txa.PrivateFrom)
-		if err != nil {
-			return err
-		}
-		privateFromSecAttr := (&multitenancy.PrivateStateSecurityAttribute{}).WithPSI(psm.ID).WithNodeEOA(address)
-		if isAuthorized, _ := multitenancy.IsAuthorized(token, eoaSecAttr, privateFromSecAttr); !isAuthorized {
-			return multitenancy.ErrNotAuthorized
-		}
-	}
 	return nil
 }
 
@@ -195,13 +178,13 @@ func (api *PrivateExtensionAPI) ApproveExtension(ctx context.Context, addressToV
 		return "", err
 	}
 
-	//Find the extension contract in order to interact with it
+	// Find the extension contract in order to interact with it
 	extender, err := psiManagementContractClient.Transactor(addressToVoteOn)
 	if err != nil {
 		return "", err
 	}
 
-	//Perform the vote transaction.
+	// Perform the vote transaction.
 	tx, err := extender.DoVote(txArgs, vote, uuid)
 	if err != nil {
 		return "", err
@@ -212,8 +195,8 @@ func (api *PrivateExtensionAPI) ApproveExtension(ctx context.Context, addressToV
 
 // ExtendContract deploys a new extension management contract to the blockchain to start the process of extending
 // a contract to a new participant
-//Create a new extension contract that signifies that we want to add a new participant to an existing contract
-//This should contain:
+// Create a new extension contract that signifies that we want to add a new participant to an existing contract
+// This should contain:
 // - arguments for sending a new transaction (the same as sendTransaction)
 // - the contract address we want to extend
 // - the new PTM public key
@@ -299,7 +282,7 @@ func (api *PrivateExtensionAPI) ExtendContract(ctx context.Context, toExtend com
 		txa.PrivateFor = append(txa.PrivateFor, participants...)
 	}
 
-	//generate some valid transaction options for sending in the transaction
+	// generate some valid transaction options for sending in the transaction
 	txArgs, err := api.privacyService.GenerateTransactOptions(txa)
 	if err != nil {
 		return "", err
@@ -307,13 +290,13 @@ func (api *PrivateExtensionAPI) ExtendContract(ctx context.Context, toExtend com
 
 	psiManagementContractClient := api.privacyService.managementContract(psm.ID)
 	defer psiManagementContractClient.Close()
-	//Deploy the contract
+	// Deploy the contract
 	tx, err := psiManagementContractClient.Deploy(txArgs, toExtend, recipientAddr, newRecipientPtmPublicKey)
 	if err != nil {
 		return "", err
 	}
 
-	//Return the transaction hash for later lookup
+	// Return the transaction hash for later lookup
 	msg := fmt.Sprintf("0x%x", tx.Hash())
 	return msg, nil
 }

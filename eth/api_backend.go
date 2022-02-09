@@ -23,8 +23,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -433,16 +431,6 @@ func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Blo
 
 func (b *EthAPIBackend) GetBlockchain() *core.BlockChain {
 	return b.eth.BlockChain()
-}
-
-// The validation of pre-requisite for multitenancy is done when EthService
-// is being created. So it's safe to use the config value here.
-func (b *EthAPIBackend) SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
-	authToken := rpc.PreauthenticatedTokenFromContext(rpcCtx)
-	if authToken != nil && b.eth.config.MultiTenantEnabled() {
-		return authToken, true
-	}
-	return nil, false
 }
 
 func (b *EthAPIBackend) AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {

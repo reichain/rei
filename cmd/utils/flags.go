@@ -849,11 +849,6 @@ var (
 		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
 		Value: ethconfig.Defaults.Istanbul.BlockPeriod,
 	}
-	// Multitenancy setting
-	MultitenancyFlag = cli.BoolFlag{
-		Name:  "multitenancy",
-		Usage: "Enable multitenancy support for this node. This requires RPC Security Plugin to also be configured.",
-	}
 
 	// Revert Reason
 	RevertReasonFlag = cli.BoolFlag{
@@ -1384,9 +1379,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(EnableNodePermissionFlag.Name) {
 		cfg.EnableNodePermission = ctx.GlobalBool(EnableNodePermissionFlag.Name)
 	}
-	if ctx.GlobalIsSet(MultitenancyFlag.Name) {
-		cfg.EnableMultitenancy = ctx.GlobalBool(MultitenancyFlag.Name)
-	}
 }
 
 func setSmartCard(ctx *cli.Context, cfg *node.Config) {
@@ -1631,7 +1623,7 @@ func setRaft(ctx *cli.Context, cfg *eth.Config) {
 
 func setQuorumConfig(ctx *cli.Context, cfg *eth.Config) error {
 	cfg.EVMCallTimeOut = time.Duration(ctx.GlobalInt(EVMCallTimeOutFlag.Name)) * time.Second
-	cfg.QuorumChainConfig = core.NewQuorumChainConfig(ctx.GlobalBool(MultitenancyFlag.Name), ctx.GlobalBool(RevertReasonFlag.Name))
+	cfg.QuorumChainConfig = core.NewQuorumChainConfig(ctx.GlobalBool(RevertReasonFlag.Name))
 	setIstanbul(ctx, cfg)
 	setRaft(ctx, cfg)
 	if ctx.GlobalIsSet(PrivateCacheTrieJournalFlag.Name) {

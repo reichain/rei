@@ -17,15 +17,12 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -245,13 +242,9 @@ func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header {
 	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)
 	copy(parentHash[:], s)
 
-	//parentHash := common.Hash{byte(n - 1)}
-	//fmt.Printf("GetHeader(%x, %d) => header with parent %x\n", h, n, parentHash)
+	// parentHash := common.Hash{byte(n - 1)}
+	// fmt.Printf("GetHeader(%x, %d) => header with parent %x\n", h, n, parentHash)
 	return fakeHeader(n, parentHash)
-}
-
-func (d *dummyChain) SupportsMultitenancy(context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
-	return nil, false
 }
 
 // Config retrieves the chain's fork configuration
@@ -354,7 +347,7 @@ func (s *stepCounter) CaptureStart(from common.Address, to common.Address, creat
 func (s *stepCounter) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, stack *vm.Stack, rStack *vm.ReturnStack, rData []byte, contract *vm.Contract, depth int, err error) error {
 	s.steps++
 	// Enable this for more output
-	//s.inner.CaptureState(env, pc, op, gas, cost, memory, stack, rStack, contract, depth, err)
+	// s.inner.CaptureState(env, pc, op, gas, cost, memory, stack, rStack, contract, depth, err)
 	return nil
 }
 
@@ -391,7 +384,7 @@ func TestJumpSub1024Limit(t *testing.T) {
 		EVMConfig: vm.Config{
 			ExtraEips: []int{2315},
 			Debug:     true,
-			//Tracer:    vm.NewJSONLogger(nil, os.Stdout),
+			// Tracer:    vm.NewJSONLogger(nil, os.Stdout),
 			Tracer: &tracer,
 		}})
 	exp := "return stack limit reached"
@@ -615,7 +608,7 @@ func benchmarkNonModifyingCode(gas uint64, code []byte, name string, b *testing.
 		})
 	}
 
-	//cfg.State.CreateAccount(cfg.Origin)
+	// cfg.State.CreateAccount(cfg.Origin)
 	// set the receiver's (the executing contract) code for execution.
 	cfg.State.SetCode(destination, code)
 	vmenv.Call(sender, destination, nil, gas, cfg.Value)
@@ -726,8 +719,8 @@ func BenchmarkSimpleLoop(b *testing.B) {
 		byte(vm.JUMP),
 	}
 
-	//tracer := vm.NewJSONLogger(nil, os.Stdout)
-	//Execute(loopingCode, nil, &Config{
+	// tracer := vm.NewJSONLogger(nil, os.Stdout)
+	// Execute(loopingCode, nil, &Config{
 	//	EVMConfig: vm.Config{
 	//		Debug:  true,
 	//		Tracer: tracer,
@@ -740,8 +733,8 @@ func BenchmarkSimpleLoop(b *testing.B) {
 	benchmarkNonModifyingCode(100000000, callEOA, "call-EOA-100M", b)
 	benchmarkNonModifyingCode(100000000, calllRevertingContractWithInput, "call-reverting-100M", b)
 
-	//benchmarkNonModifyingCode(10000000, staticCallIdentity, "staticcall-identity-10M", b)
-	//benchmarkNonModifyingCode(10000000, loopingCode, "loop-10M", b)
+	// benchmarkNonModifyingCode(10000000, staticCallIdentity, "staticcall-identity-10M", b)
+	// benchmarkNonModifyingCode(10000000, loopingCode, "loop-10M", b)
 }
 
 // TestEip2929Cases contains various testcases that are used for
@@ -803,13 +796,13 @@ func TestEip2929Cases(t *testing.T) {
 	{ // EXTCODECOPY
 		code := []byte{
 			// extcodecopy( 0xff,0,0,0,0)
-			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, // length, codeoffset, memoffset
 			byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
 			// extcodecopy( 0xff,0,0,0,0)
-			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, // length, codeoffset, memoffset
 			byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
 			// extcodecopy( this,0,0,0,0)
-			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, // length, codeoffset, memoffset
 			byte(vm.ADDRESS), byte(vm.EXTCODECOPY),
 
 			byte(vm.STOP),

@@ -22,8 +22,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -97,7 +95,6 @@ type Backend interface {
 	// AccountExtraDataStateGetterByNumber returns state getter at a given block height
 	AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error)
 	PSMR() mps.PrivateStateMetadataResolver
-	SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

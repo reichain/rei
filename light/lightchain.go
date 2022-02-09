@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -40,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -75,9 +74,6 @@ type LightChain struct {
 	running          int32 // whether LightChain is running or stopped
 	procInterrupt    int32 // interrupts chain insert
 	disableCheckFreq int32 // disables header verification
-
-	// Quorum
-	isMultitenant bool
 }
 
 // NewLightChain returns a fully initialised light chain using information
@@ -121,15 +117,6 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 			log.Info("Chain rewind was successful, resuming normal operation")
 		}
 	}
-	return bc, nil
-}
-
-func NewMultitenantLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.Engine, checkpoint *params.TrustedCheckpoint) (*LightChain, error) {
-	bc, err := NewLightChain(odr, config, engine, checkpoint)
-	if err != nil {
-		return nil, err
-	}
-	bc.isMultitenant = true
 	return bc, nil
 }
 
@@ -596,10 +583,6 @@ func (lc *LightChain) DisableCheckFreq() {
 // EnableCheckFreq enables header validation.
 func (lc *LightChain) EnableCheckFreq() {
 	atomic.StoreInt32(&lc.disableCheckFreq, 0)
-}
-
-func (lc *LightChain) SupportsMultitenancy(context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
-	return nil, lc.isMultitenant
 }
 
 // QuorumConfig retrieves the Quorum chain's configuration

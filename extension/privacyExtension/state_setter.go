@@ -16,9 +16,8 @@ import (
 var DefaultExtensionHandler *ExtensionHandler
 
 type ExtensionHandler struct {
-	ptm           private.PrivateTransactionManager
-	psmr          mps.PrivateStateMetadataResolver
-	isMultitenant bool
+	ptm  private.PrivateTransactionManager
+	psmr mps.PrivateStateMetadataResolver
 }
 
 func Init() {
@@ -27,10 +26,6 @@ func Init() {
 
 func NewExtensionHandler(transactionManager private.PrivateTransactionManager) *ExtensionHandler {
 	return &ExtensionHandler{ptm: transactionManager}
-}
-
-func (handler *ExtensionHandler) SupportMultitenancy(b bool) {
-	handler.isMultitenant = b
 }
 
 func (handler *ExtensionHandler) SetPSMR(psmr mps.PrivateStateMetadataResolver) {
@@ -43,7 +38,7 @@ func (handler *ExtensionHandler) CheckExtensionAndSetPrivateState(txLogs []*type
 		if !logContainsExtensionTopic(txLog) {
 			continue
 		}
-		//this is a direct state share
+		// this is a direct state share
 		address, hash, uuid, err := extension.UnpackStateSharedLog(txLog.Data)
 		if err != nil {
 			continue
@@ -57,20 +52,17 @@ func (handler *ExtensionHandler) CheckExtensionAndSetPrivateState(txLogs []*type
 			}
 			// check the privacy flag of the contract. if its other than
 			// 0 then need to update the privacy metadata for the contract
-			//TODO: validate the old and new parties to ensure that all old parties are there
+			// TODO: validate the old and new parties to ensure that all old parties are there
 			setPrivacyMetadata(privateState, address, hash)
-			if handler.isMultitenant {
-				setManagedParties(handler.ptm, privateState, address, hash)
-			}
 			extraMetaDataUpdated = true
 		} else {
 			managedParties, accounts, privacyMetaData, found := handler.FetchStateData(txLog.Address, hash, uuid, psi)
 			if !found {
 				continue
 			}
-			if !handler.isMultitenant {
-				managedParties = nil
-			}
+			// if !handler.isMultitenant {
+			managedParties = nil
+			// }
 			if !validateAccountsExist([]common.Address{address}, accounts) {
 				log.Error("Account mismatch", "expected", address, "found", accounts)
 				continue
@@ -91,7 +83,7 @@ func (handler *ExtensionHandler) FetchStateData(address common.Address, hash str
 
 	managedParties, stateData, privacyMetaData, ok := handler.FetchDataFromPTM(hash)
 	if !ok {
-		//there is nothing to do here, the state wasn't shared with us
+		// there is nothing to do here, the state wasn't shared with us
 		log.Error("Extension: No state shared with us")
 		return nil, nil, nil, false
 	}
@@ -126,7 +118,7 @@ func (handler *ExtensionHandler) FetchDataFromPTM(hash string) ([]string, []byte
 
 func (handler *ExtensionHandler) UuidIsOwn(address common.Address, uuid string, psi types.PrivateStateIdentifier) bool {
 	if uuid == "" {
-		//we never called accept
+		// we never called accept
 		log.Warn("Extension: State shared by accept never called")
 		return false
 	}
@@ -147,7 +139,7 @@ func (handler *ExtensionHandler) UuidIsOwn(address common.Address, uuid string, 
 		return false
 	}
 
-	//check the given PSI is same as PSI of sender key
+	// check the given PSI is same as PSI of sender key
 	senderPsm, err := handler.psmr.ResolveForManagedParty(senderPublicKey)
 	if err != nil {
 		log.Debug("Extension: unable to determine sender public key PSI", "err", err)
@@ -156,7 +148,7 @@ func (handler *ExtensionHandler) UuidIsOwn(address common.Address, uuid string, 
 
 	if senderPsm.ID != psi {
 		// sender was another tenant on this node
-		//not an error case, so no need to log an error
+		// not an error case, so no need to log an error
 		return false
 	}
 

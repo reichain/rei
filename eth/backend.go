@@ -226,11 +226,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			PrivateTrieCleanJournal: stack.ResolvePath(config.PrivateTrieCleanCacheJournal),
 		}
 	)
-	newBlockChainFunc := core.NewBlockChain
-	if config.QuorumChainConfig.MultiTenantEnabled() {
-		newBlockChainFunc = core.NewMultitenantBlockChain
-	}
-	eth.blockchain, err = newBlockChainFunc(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, &config.TxLookupLimit, &config.QuorumChainConfig)
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, &config.TxLookupLimit, &config.QuorumChainConfig)
 	if err != nil {
 		return nil, err
 	}

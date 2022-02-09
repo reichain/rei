@@ -22,8 +22,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -330,14 +328,6 @@ func (b *LesApiBackend) StateAtTransaction(ctx context.Context, block *types.Blo
 
 func (b *LesApiBackend) GetBlockchain() *core.BlockChain {
 	return nil
-}
-
-func (b *LesApiBackend) SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool) {
-	authToken := rpc.PreauthenticatedTokenFromContext(rpcCtx)
-	if authToken != nil && b.eth.config.MultiTenantEnabled() {
-		return authToken, true
-	}
-	return nil, false
 }
 
 func (b *LesApiBackend) AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
