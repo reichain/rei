@@ -41,15 +41,12 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/private"
-	"github.com/ethereum/go-ethereum/private/engine"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -1443,37 +1440,6 @@ func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, addr
 	return (*hexutil.Uint64)(&nonce), state.Error()
 }
 
-// Quorum
-
-type PrivacyMetadataWithMandatoryRecipients struct {
-	*state.PrivacyMetadata
-	MandatoryRecipients []string `json:"mandatoryFor,omitempty"`
-}
-
-func (s *PublicTransactionPoolAPI) GetContractPrivacyMetadata(ctx context.Context, address common.Address) (*PrivacyMetadataWithMandatoryRecipients, error) {
-	state, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.LatestBlockNumber)
-	if state == nil || err != nil {
-		return nil, err
-	}
-	var mandatoryRecipients []string
-
-	privacyMetadata, err := state.GetPrivacyMetadata(address)
-	if privacyMetadata == nil || err != nil {
-		return nil, err
-	}
-
-	if privacyMetadata.PrivacyFlag == engine.PrivacyFlagMandatoryRecipients {
-		mandatoryRecipients, err = private.P.GetMandatory(privacyMetadata.CreationTxHash)
-		if len(mandatoryRecipients) == 0 || err != nil {
-			return nil, err
-		}
-	}
-
-	return &PrivacyMetadataWithMandatoryRecipients{privacyMetadata, mandatoryRecipients}, nil
-}
-
-// End Quorum
-
 // GetTransactionByHash returns the transaction for the given hash
 func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (*RPCTransaction, error) {
 	// Try to return an already finalized transaction
@@ -1613,10 +1579,9 @@ type PrivateTxArgs struct {
 	PrivateFrom string `json:"privateFrom"`
 	// PrivateFor is the list of public keys which are available in the Private Transaction Managers in the network.
 	// The transaction payload is only visible to those party to the transaction.
-	PrivateFor          []string               `json:"privateFor"`
-	PrivateTxType       string                 `json:"restriction"`
-	PrivacyFlag         engine.PrivacyFlagType `json:"privacyFlag"`
-	MandatoryRecipients []string               `json:"mandatoryFor"`
+	PrivateFor          []string `json:"privateFor"`
+	PrivateTxType       string   `json:"restriction"`
+	MandatoryRecipients []string `json:"mandatoryFor"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
