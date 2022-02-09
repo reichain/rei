@@ -87,24 +87,7 @@ func (b *testBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*type
 
 func (b *testBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.db, hash); number != nil {
-		receipts := rawdb.ReadReceipts(b.db, hash, *number, params.TestChainConfig)
-
-		psm, err := b.PSMR().ResolveForUserContext(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		psiReceipts := make([]*types.Receipt, len(receipts))
-		for i := 0; i < len(receipts); i++ {
-			psiReceipts[i] = receipts[i]
-			if receipts[i].PSReceipts != nil {
-				psReceipt, found := receipts[i].PSReceipts[psm.ID]
-				if found {
-					psiReceipts[i] = psReceipt
-				}
-			}
-		}
-		return psiReceipts, nil
+		return rawdb.ReadReceipts(b.db, hash, *number, params.TestChainConfig), nil
 	}
 	return nil, nil
 }
