@@ -467,34 +467,6 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		return common.Hash{}, err
 	}
 
-	// Quorum
-	if signed.IsPrivate() && s.b.IsPrivacyMarkerTransactionCreationEnabled() {
-		// Look up the wallet containing the requested signer
-		account := accounts.Account{Address: args.From}
-		wallet, err := s.am.Find(account)
-		if err != nil {
-			return common.Hash{}, err
-		}
-
-		pmt, err := createPrivacyMarkerTransaction(s.b, signed, &args.PrivateTxArgs)
-		if err != nil {
-			log.Warn("Failed to create privacy marker transaction for private transaction", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
-			return common.Hash{}, err
-		}
-
-		var pmtChainID *big.Int // PMT is public so will have different chainID used in signing compared to the internal tx
-		if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-			pmtChainID = config.ChainID
-		}
-
-		signed, err = wallet.SignTxWithPassphrase(account, passwd, pmt, pmtChainID)
-		if err != nil {
-			log.Warn("Failed to sign privacy marker transaction for private transaction", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
-			return common.Hash{}, err
-		}
-	}
-	// /Quorum
-
 	return SubmitTransaction(ctx, s.b, signed, args.PrivateFrom, false)
 }
 
@@ -2122,27 +2094,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return common.Hash{}, err
 	}
-
-	// Quorum
-	if signed.IsPrivate() && s.b.IsPrivacyMarkerTransactionCreationEnabled() {
-		pmt, err := createPrivacyMarkerTransaction(s.b, signed, &args.PrivateTxArgs)
-		if err != nil {
-			log.Warn("Failed to create privacy marker transaction for private transaction", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
-			return common.Hash{}, err
-		}
-
-		var pmtChainID *big.Int // PMT is public so will have different chainID used in signing compared to the internal tx
-		if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-			pmtChainID = config.ChainID
-		}
-
-		signed, err = wallet.SignTx(account, pmt, pmtChainID)
-		if err != nil {
-			log.Warn("Failed to sign privacy marker transaction for private transaction", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
-			return common.Hash{}, err
-		}
-	}
-	// /Quorum
 
 	return SubmitTransaction(ctx, s.b, signed, args.PrivateFrom, false)
 }

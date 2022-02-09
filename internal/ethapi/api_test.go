@@ -9,6 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,10 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/private/engine/notinuse"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/golang/mock/gomock"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -314,7 +315,7 @@ func TestSimulateExecution_whenStateValidationMessageCall(t *testing.T) {
 	assert.True(len(affectedCACreationTxHashes) == len(expectedCACreationTxHashes))
 }
 
-//mix and match flags
+// mix and match flags
 func TestSimulateExecution_PrivacyFlagPartyProtectionCallingStandardPrivateContract_Error(t *testing.T) {
 	assert := assert.New(t)
 	privateTxArgs.PrivacyFlag = engine.PrivacyFlagPartyProtection
@@ -403,7 +404,7 @@ func TestSimulateExecution_StateValidationFlagCallingPartyProtectionContract_Err
 
 	_, _, err := simulateExecutionForPE(arbitraryCtx, &StubBackend{}, arbitraryFrom, simpleStorageContractMessageCallTx, privateTxArgs)
 
-	//expectedCACreationTxHashes := []common.EncryptedPayloadHash{arbitrarySimpleStorageContractEncryptedPayloadHash}
+	// expectedCACreationTxHashes := []common.EncryptedPayloadHash{arbitrarySimpleStorageContractEncryptedPayloadHash}
 
 	log.Debug("state", "state", privateStateDB.GetState(arbitrarySimpleStorageContractAddress, common.Hash{0}))
 
@@ -634,7 +635,6 @@ func TestGetContractPrivacyMetadata(t *testing.T) {
 
 	stbBackend := &StubBackend{}
 	stbBackend.multitenancySupported = false
-	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
 	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
@@ -655,7 +655,6 @@ func TestGetContractPrivacyMetadataWhenMandatoryRecipients(t *testing.T) {
 
 	stbBackend := &StubBackend{}
 	stbBackend.multitenancySupported = false
-	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
 	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
@@ -697,7 +696,6 @@ func TestSubmitPrivateTransaction(t *testing.T) {
 
 	stbBackend := &StubBackend{}
 	stbBackend.multitenancySupported = false
-	stbBackend.isPrivacyMarkerTransactionCreationEnabled = false
 	stbBackend.ks = keystore
 	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
 	stbBackend.poolNonce = 999
@@ -718,39 +716,6 @@ func TestSubmitPrivateTransaction(t *testing.T) {
 	assert.Equal(fromAcct.Address, stbBackend.txThatWasSent.From(), "incorrect 'From' address on transaction")
 	assert.Equal(toAcct.Address, *stbBackend.txThatWasSent.To(), "incorrect 'To' address on transaction")
 	assert.Equal(uint64(123), stbBackend.txThatWasSent.Nonce(), "incorrect nonce on transaction")
-}
-
-func TestSubmitPrivateTransactionWithPrivacyMarkerEnabled(t *testing.T) {
-	assert := assert.New(t)
-
-	keystore, fromAcct, toAcct := createKeystore(t)
-
-	params.QuorumTestChainConfig.PrivacyPrecompileBlock = big.NewInt(0)
-	defer func() { params.QuorumTestChainConfig.PrivacyPrecompileBlock = nil }()
-
-	stbBackend := &StubBackend{}
-	stbBackend.multitenancySupported = false
-	stbBackend.isPrivacyMarkerTransactionCreationEnabled = true
-	stbBackend.ks = keystore
-	stbBackend.accountManager = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: true}, stbBackend)
-
-	privateAccountAPI := NewPrivateAccountAPI(stbBackend, nil)
-
-	gas := hexutil.Uint64(999999)
-	nonce := hexutil.Uint64(123)
-	payload := hexutil.Bytes(([]byte("0x43d3e767000000000000000000000000000000000000000000000000000000000000000a"))[:])
-	privateTxArgs.PrivacyFlag = engine.PrivacyFlagStandardPrivate
-	txArgs := SendTxArgs{PrivateTxArgs: *privateTxArgs, From: fromAcct.Address, To: &toAcct.Address, Gas: &gas, Nonce: &nonce, Data: &payload}
-
-	_, err := privateAccountAPI.SendTransaction(arbitraryCtx, txArgs, "")
-
-	assert.NoError(err)
-	assert.True(stbBackend.sendTxCalled, "transaction was not sent")
-	assert.False(stbBackend.txThatWasSent.IsPrivate(), "transaction was private, instead of privacy marker transaction (public)")
-	assert.Equal(fromAcct.Address, stbBackend.txThatWasSent.From(), "expected privacy marker transaction to have same 'from' address as internal private tx")
-	assert.Equal(common.QuorumPrivacyPrecompileContractAddress(), *stbBackend.txThatWasSent.To(), "transaction 'To' address should be privacy marker precompile")
-	assert.Equal(uint64(nonce), stbBackend.txThatWasSent.Nonce(), "incorrect nonce on transaction")
-	assert.NotEqual(hexutil.Uint64(stbBackend.txThatWasSent.Gas()), gas, "privacy marker transaction should not have same gas value as internal private tx")
 }
 
 func TestSetRawTransactionPrivateFrom(t *testing.T) {
@@ -897,16 +862,15 @@ func createKeystore(t *testing.T) (*keystore.KeyStore, accounts.Account, account
 }
 
 type StubBackend struct {
-	getEVMCalled                              bool
-	sendTxCalled                              bool
-	txThatWasSent                             *types.Transaction
-	mockAccountExtraDataStateGetter           *vm.MockAccountExtraDataStateGetter
-	multitenancySupported                     bool
-	isPrivacyMarkerTransactionCreationEnabled bool
-	accountManager                            *accounts.Manager
-	ks                                        *keystore.KeyStore
-	poolNonce                                 uint64
-	allowUnprotectedTxs                       bool
+	getEVMCalled                    bool
+	sendTxCalled                    bool
+	txThatWasSent                   *types.Transaction
+	mockAccountExtraDataStateGetter *vm.MockAccountExtraDataStateGetter
+	multitenancySupported           bool
+	accountManager                  *accounts.Manager
+	ks                              *keystore.KeyStore
+	poolNonce                       uint64
+	allowUnprotectedTxs             bool
 
 	IstanbulBlock     *big.Int
 	CurrentHeadNumber *big.Int
@@ -1141,10 +1105,6 @@ func (msb *MPSStubBackend) ChainConfig() *params.ChainConfig {
 
 func (sb *MPSStubBackend) PSMR() mps.PrivateStateMetadataResolver {
 	return sb.psmr
-}
-
-func (sb *StubBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
-	return sb.isPrivacyMarkerTransactionCreationEnabled
 }
 
 type StubMinimalApiState struct {

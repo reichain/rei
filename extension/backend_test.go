@@ -79,10 +79,6 @@ type MockEthAPIBackend struct {
 	eth.EthAPIBackend
 }
 
-func (b *MockEthAPIBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
-	return false
-}
-
 func TestGenerateTransactionOptionsErrorsWhenNoPrivateParticipants(t *testing.T) {
 	sendTxArgs := ethapi.SendTxArgs{
 		From: common.Address{},

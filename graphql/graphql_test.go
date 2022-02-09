@@ -27,6 +27,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/sha3"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -48,9 +52,6 @@ import (
 	"github.com/ethereum/go-ethereum/private/engine"
 	"github.com/ethereum/go-ethereum/private/engine/notinuse"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/sha3"
 )
 
 func TestBuildSchema(t *testing.T) {
@@ -678,10 +679,6 @@ func (sb *StubBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.S
 
 func (sb *StubBackend) PSMR() mps.PrivateStateMetadataResolver {
 	return &StubPSMR{}
-}
-
-func (sb *StubBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
-	panic("implement me")
 }
 
 func (sb *StubBackend) UnprotectedAllowed() bool {

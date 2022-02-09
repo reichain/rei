@@ -450,10 +450,6 @@ func (b *EthAPIBackend) AccountExtraDataStateGetterByNumber(ctx context.Context,
 	return s, err
 }
 
-func (b *EthAPIBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
-	return b.eth.config.QuorumChainConfig.PrivacyMarkerEnabled() && b.ChainConfig().IsPrivacyPrecompile(b.eth.blockchain.CurrentBlock().Number())
-}
-
 // used by Quorum
 type EthAPIState struct {
 	state, privateState *state.StateDB

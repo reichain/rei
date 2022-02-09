@@ -64,9 +64,8 @@ type TransactOpts struct {
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
 
 	// Quorum
-	PrivateFrom              string   // The public key of the Tessera/Constellation identity to send this tx from.
-	PrivateFor               []string // The public keys of the Tessera/Constellation identities this tx is intended for.
-	IsUsingPrivacyPrecompile bool
+	PrivateFrom string   // The public key of the Tessera/Constellation identity to send this tx from.
+	PrivateFor  []string // The public keys of the Tessera/Constellation identities this tx is intended for.
 }
 
 // FilterOpts is the collection of options to fine tune filtering for events
@@ -278,11 +277,6 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		}
 		payload = hash.Bytes()
 		rawTx = c.createPrivateTransaction(rawTx, payload)
-
-		if opts.IsUsingPrivacyPrecompile {
-			rawTx, _ = c.createMarkerTx(opts, rawTx, PrivateTxArgs{PrivateFor: opts.PrivateFor})
-			opts.PrivateFor = nil
-		}
 	}
 
 	// Choose signer to sign transaction

@@ -22,6 +22,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -35,7 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 
 // Backend interface provides the common API services (that are provided by
@@ -97,8 +98,6 @@ type Backend interface {
 	AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error)
 	PSMR() mps.PrivateStateMetadataResolver
 	SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool)
-	// IsPrivacyMarkerTransactionCreationEnabled returns true if privacy marker transactions are enabled and should be created
-	IsPrivacyMarkerTransactionCreationEnabled() bool
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

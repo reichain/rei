@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/mps"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/extension/extensionContracts"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 
 // ChainAccessor provides methods to fetch state and blocks from the local blockchain
@@ -31,7 +32,6 @@ type APIBackendHelper interface {
 	PSMR() mps.PrivateStateMetadataResolver
 	CurrentBlock() *types.Block
 	SupportsMultitenancy(rpcCtx context.Context) (*proto.PreAuthenticatedAuthenticationToken, bool)
-	IsPrivacyMarkerTransactionCreationEnabled() bool
 }
 
 // StateFetcher manages retrieving state from the database and returning it in
@@ -87,7 +87,7 @@ func (fetcher *StateFetcher) addressStateAsJson(privateState *state.StateDB, add
 	} else {
 		return nil, fmt.Errorf("error in contract state fetch")
 	}
-	//types can be marshalled, so errors can't occur
+	// types can be marshalled, so errors can't occur
 	out, _ := json.Marshal(&keepAddresses)
 	return out, nil
 }

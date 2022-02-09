@@ -40,12 +40,12 @@ type PrivacyService struct {
 }
 
 var (
-	//default gas limit to use if not passed in sendTxArgs
+	// default gas limit to use if not passed in sendTxArgs
 	defaultGasLimit = uint64(4712384)
-	//default gas price to use if not passed in sendTxArgs
+	// default gas price to use if not passed in sendTxArgs
 	defaultGasPrice = big.NewInt(0)
 
-	//Private participants must be specified for contract extension related transactions
+	// Private participants must be specified for contract extension related transactions
 	errNotPrivate = errors.New("must specify private participants")
 )
 
@@ -166,7 +166,7 @@ func (service *PrivacyService) watchForNewContracts(psi types.PrivateStateIdenti
 
 			psiManagementContractClient := service.managementContract(psi)
 			defer psiManagementContractClient.Close()
-			//Find the extension contract in order to interact with it
+			// Find the extension contract in order to interact with it
 			caller, _ := psiManagementContractClient.Caller(newContractExtension.ManagementContractAddress)
 			contractCreator, _ := caller.Creator(nil)
 
@@ -220,7 +220,7 @@ func (service *PrivacyService) watchForCompletionEvents(psi types.PrivateStateId
 
 		psiManagementContractClient := service.managementContract(psi)
 		defer psiManagementContractClient.Close()
-		//Find the extension contract in order to interact with it
+		// Find the extension contract in order to interact with it
 		caller, err := psiManagementContractClient.Caller(l.Address)
 		if err != nil {
 			log.Error("service.managementContractFacade.Caller", "address", l.Address.Hex(), "error", err)
@@ -267,7 +267,7 @@ func (service *PrivacyService) watchForCompletionEvents(psi types.PrivateStateId
 			return
 		}
 
-		//we found the account, so we can send
+		// we found the account, so we can send
 		contractToExtend, err := caller.ContractToExtend(nil)
 		if err != nil {
 			log.Error("[contract] caller.ContractToExtend", "error", err)
@@ -385,14 +385,13 @@ func (service *PrivacyService) GenerateTransactOptions(txa ethapi.SendTxArgs) (*
 		return nil, fmt.Errorf("no wallet found for account %s", txa.From.String())
 	}
 
-	//Find the account we plan to send the transaction from
+	// Find the account we plan to send the transaction from
 
 	txArgs := bind.NewWalletTransactor(wallet, from, service.config.ChainID)
 	txArgs.PrivateFrom = txa.PrivateFrom
 	txArgs.PrivateFor = txa.PrivateFor
 	txArgs.GasLimit = defaultGasLimit
 	txArgs.GasPrice = defaultGasPrice
-	txArgs.IsUsingPrivacyPrecompile = service.apiBackendHelper.IsPrivacyMarkerTransactionCreationEnabled()
 
 	if txa.GasPrice != nil {
 		txArgs.GasPrice = txa.GasPrice.ToInt()

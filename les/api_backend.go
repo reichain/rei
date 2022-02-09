@@ -22,6 +22,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -39,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/light"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jpmorganchase/quorum-security-plugin-sdk-go/proto"
 )
 
 type LesApiBackend struct {
@@ -342,10 +343,6 @@ func (b *LesApiBackend) SupportsMultitenancy(rpcCtx context.Context) (*proto.Pre
 func (b *LesApiBackend) AccountExtraDataStateGetterByNumber(ctx context.Context, number rpc.BlockNumber) (vm.AccountExtraDataStateGetter, error) {
 	s, _, err := b.StateAndHeaderByNumber(ctx, number)
 	return s, err
-}
-
-func (b *LesApiBackend) IsPrivacyMarkerTransactionCreationEnabled() bool {
-	return b.eth.config.QuorumChainConfig.PrivacyMarkerEnabled()
 }
 
 // End Quorum
