@@ -17,7 +17,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -25,8 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/multitenancy"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -277,41 +274,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	var (
-		leftoverGas uint64
-		evm         = st.evm
-		ret         []byte
-		// vm errors do not effect consensus and are therefor
-		// not assigned to err, except for insufficient balance
-		// error.
-		vmerr error
+		ret   []byte
+		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
 	if contractCreation {
-		ret, _, leftoverGas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
+		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		// Increment the account nonce only if the transaction isn't private.
-		// If the transaction is private it has already been incremented on
-		// the public state.
+		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, leftoverGas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	if vmerr != nil {
-		log.Info("VM returned with error", "err", vmerr)
-		// The only possible consensus-error would be if there wasn't
-		// sufficient balance to make the transfer happen. The first
-		// balance transfer may never fail.
-		if vmerr == vm.ErrInsufficientBalance {
-			return nil, vmerr
-		}
-		if errors.Is(vmerr, multitenancy.ErrNotAuthorized) {
-			return nil, vmerr
-		}
-	}
-
-	// Pay gas used during contract creation or execution (st.gas tracks remaining gas)
-	// However, if private contract then we don't want to do this else we can get
-	// a mismatch between a (non-participant) minter and (participant) validator,
-	// which can cause a 'BAD BLOCK' crash.
-	st.gas = leftoverGas
 
 	st.refundGas()
 	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
