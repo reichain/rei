@@ -228,10 +228,6 @@ func gatherForks(config *params.ChainConfig) []uint64 {
 			continue
 		}
 
-		// ignoring QIP714Block from fork check
-		if field.Name == "QIP714Block" {
-			continue
-		}
 		// Extract the fork rule block number and aggregate it
 		rule := conf.Field(i).Interface().(*big.Int)
 		if rule != nil {

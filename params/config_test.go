@@ -193,23 +193,6 @@ func TestCheckCompatible(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			stored: &ChainConfig{QIP714Block: big.NewInt(10)},
-			new:    &ChainConfig{QIP714Block: big.NewInt(20)},
-			head:   30,
-			wantErr: &ConfigCompatError{
-				What:         "permissions fork block",
-				StoredConfig: big.NewInt(10),
-				NewConfig:    big.NewInt(20),
-				RewindTo:     9,
-			},
-		},
-		{
-			stored:  &ChainConfig{QIP714Block: big.NewInt(10)},
-			new:     &ChainConfig{QIP714Block: big.NewInt(20)},
-			head:    4,
-			wantErr: nil,
-		},
-		{
 			stored: &ChainConfig{MaxCodeSizeConfig: storedMaxCodeConfig0},
 			new:    &ChainConfig{MaxCodeSizeConfig: nil},
 			head:   4,
