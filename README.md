@@ -17,6 +17,28 @@ Key differences from GoQuorum:
 
 ![network.png](./docs/network.png)
 
+## Install
+
+```shell
+git clone https://github.com/reichain/rei.git
+cd rei
+make rei
+```
+
+## Run RPC Node
+
+### Mainnet
+
+```shell
+rei --datadir ~/.rei/mainnet --mainnet --http
+```
+
+### Testnet
+
+```shell
+rei --datadir ~/.rei/testnet --testnet --http
+```
+
 ## License
 
 The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the
