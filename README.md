@@ -17,6 +17,16 @@ Key differences from GoQuorum:
 
 ![network.png](./docs/network.png)
 
+## Docker
+
+```shell
+buildctl build \
+    --frontend dockerfile.v0 \
+    --local dockerfile=. \
+    --local context=. \
+    --output type=image,name=${IMAGE},push=true
+```
+
 ## Install
 
 ```shell
