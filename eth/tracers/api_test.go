@@ -175,10 +175,6 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 	return nil, vm.BlockContext{}, nil, fmt.Errorf("transaction index %d out of range for block %#x", txIndex, block.Hash())
 }
 
-func (b *testBackend) GetBlockchain() *core.BlockChain {
-	return b.chain
-}
-
 func TestTraceCall(t *testing.T) {
 	t.Parallel()
 

@@ -69,9 +69,6 @@ type Backend interface {
 	ChainDb() ethdb.Database
 	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, error)
 	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error)
-
-	// Quorum
-	GetBlockchain() *core.BlockChain
 }
 
 // API is the collection of tracing APIs statedb exposed over the private debugging endpoint.
