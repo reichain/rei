@@ -61,6 +61,8 @@ type TransactOpts struct {
 	GasLimit uint64   // Gas limit to set for the transaction execution (0 = estimate)
 
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
+
+	NoSend bool // Do all transact steps but do not send the transaction
 }
 
 // FilterOpts is the collection of options to fine tune filtering for events
@@ -270,6 +272,9 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		return nil, err
 	}
 
+	if opts.NoSend {
+		return signedTx, nil
+	}
 	if err := c.transactor.SendTransaction(ensureContext(opts.Context), signedTx, PrivateTxArgs{}); err != nil {
 		return nil, err
 	}

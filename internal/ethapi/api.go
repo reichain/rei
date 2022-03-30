@@ -571,9 +571,13 @@ func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
 	return &PublicBlockChainAPI{b}
 }
 
-// ChainId returns the chainID value for transaction replay protection.
-func (s *PublicBlockChainAPI) ChainId() *hexutil.Big {
-	return (*hexutil.Big)(s.b.ChainConfig().ChainID)
+// ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
+func (api *PublicBlockChainAPI) ChainId() (*hexutil.Big, error) {
+	// if current block is at or past the EIP-155 replay-protection fork block, return chainID from config
+	if config := api.b.ChainConfig(); config.IsEIP155(api.b.CurrentBlock().Number()) {
+		return (*hexutil.Big)(config.ChainID), nil
+	}
+	return nil, fmt.Errorf("chain not synced beyond EIP-155 replay-protection fork block")
 }
 
 // BlockNumber returns the block number of the chain head.
@@ -901,9 +905,9 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	msg := args.ToMessage(globalGasCap)
 	// Get a new instance of the EVM.
-	evm, vmError, err := b.GetEVM(ctx, msg, state, header)
+	msg := args.ToMessage(globalGasCap)
+	evm, vmError, err := b.GetEVM(ctx, msg, state, header, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1353,6 +1357,106 @@ func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 	return nil
 }
 
+// accessListResult returns an optional accesslist
+// Its the result of the `debug_createAccessList` RPC call.
+// It contains an error if the transaction itself failed.
+type accessListResult struct {
+	Accesslist *types.AccessList `json:"accessList"`
+	Error      string            `json:"error,omitempty"`
+	GasUsed    hexutil.Uint64    `json:"gasUsed"`
+}
+
+// CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
+// Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
+func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args SendTxArgs, blockNrOrHash *rpc.BlockNumberOrHash) (*accessListResult, error) {
+	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	acl, gasUsed, vmerr, err := AccessList(ctx, s.b, bNrOrHash, args)
+	if err != nil {
+		return nil, err
+	}
+	result := &accessListResult{Accesslist: &acl, GasUsed: hexutil.Uint64(gasUsed)}
+	if vmerr != nil {
+		result.Error = vmerr.Error()
+	}
+	return result, nil
+}
+
+// AccessList creates an access list for the given transaction.
+// If the accesslist creation fails an error is returned.
+// If the transaction itself fails, an vmErr is returned.
+func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrHash, args SendTxArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
+	// Retrieve the execution context
+	db, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if db == nil || err != nil {
+		return nil, 0, nil, err
+	}
+	// If the gas amount is not set, extract this as it will depend on access
+	// lists and we'll need to reestimate every time
+	nogas := args.Gas == nil
+
+	// Ensure any missing fields are filled, extract the recipient and input data
+	if err := args.setDefaults(ctx, b); err != nil {
+		return nil, 0, nil, err
+	}
+	var to common.Address
+	if args.To != nil {
+		to = *args.To
+	} else {
+		to = crypto.CreateAddress(args.From, uint64(*args.Nonce))
+	}
+	var input []byte
+	if args.Input != nil {
+		input = *args.Input
+	} else if args.Data != nil {
+		input = *args.Data
+	}
+	// Retrieve the precompiles since they don't need to be added to the access list
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number))
+
+	// Create an initial tracer
+	prevTracer := vm.NewAccessListTracer(nil, args.From, to, precompiles)
+	if args.AccessList != nil {
+		prevTracer = vm.NewAccessListTracer(*args.AccessList, args.From, to, precompiles)
+	}
+	for {
+		// Retrieve the current access list to expand
+		accessList := prevTracer.AccessList()
+		log.Trace("Creating access list", "input", accessList)
+
+		// If no gas amount was specified, each unique access list needs it's own
+		// gas calculation. This is quite expensive, but we need to be accurate
+		// and it's convered by the sender only anyway.
+		if nogas {
+			args.Gas = nil
+			if err := args.setDefaults(ctx, b); err != nil {
+				return nil, 0, nil, err // shouldn't happen, just in case
+			}
+		}
+		// Copy the original db so we don't modify it
+		statedb := db.Copy()
+		msg := types.NewMessage(args.From, args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas), args.GasPrice.ToInt(), input, accessList, false)
+
+		// Apply the transaction with the access list tracer
+		tracer := vm.NewAccessListTracer(accessList, args.From, to, precompiles)
+		config := vm.Config{Tracer: tracer, Debug: true}
+		vmenv, _, err := b.GetEVM(ctx, msg, statedb, header, &config)
+		if err != nil {
+			return nil, 0, nil, err
+		}
+		res, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()))
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
+		}
+		if tracer.Equal(prevTracer) {
+			return accessList, res.UsedGas, res.Err, nil
+		}
+		prevTracer = tracer
+	}
+}
+
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
 	b         Backend
@@ -1615,7 +1719,6 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 			return errors.New(`contract creation without any data provided`)
 		}
 	}
-
 	// Estimate the gas usage if necessary.
 	if args.Gas == nil {
 		// For backwards-compatibility reason, we try both input and data
@@ -1660,7 +1763,6 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	} else if args.Data != nil {
 		input = *args.Data
 	}
-
 	var data types.TxData
 	if args.AccessList == nil {
 		data = &types.LegacyTx{
@@ -1716,69 +1818,6 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		log.EmitCheckpoint(log.TxCreated, "tx", tx.Hash().Hex(), "to", tx.To().Hex())
 	}
 	return tx.Hash(), nil
-}
-
-// runSimulation runs a simulation of the given transaction.
-// It returns the EVM instance upon completion
-func runSimulation(ctx context.Context, b Backend, from common.Address, tx *types.Transaction) (*vm.EVM, error) {
-	defer func(start time.Time) {
-		log.Debug("Simulated Execution EVM call finished", "runtime", time.Since(start))
-	}(time.Now())
-
-	// Set sender address or use a default if none specified
-	addr := from
-	if addr == (common.Address{}) {
-		if wallets := b.AccountManager().Wallets(); len(wallets) > 0 {
-			if accountList := wallets[0].Accounts(); len(accountList) > 0 {
-				addr = accountList[0].Address
-			}
-		}
-	}
-
-	// Create new call message
-	msg := types.NewMessage(addr, tx.To(), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), tx.AccessList(), false)
-
-	// Setup context with timeout as gas un-metered
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, time.Second*5)
-	// Make sure the context is cancelled when the call has completed
-	// this makes sure resources are cleaned up.
-	defer func() { cancel() }()
-
-	// Get a new instance of the EVM.
-	blockNumber := b.CurrentBlock().Number().Uint64()
-	stateAtBlock, header, err := b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockNumber))
-	if stateAtBlock == nil || err != nil {
-		return nil, err
-	}
-	evm, _, err := b.GetEVM(ctx, msg, stateAtBlock, header)
-	if err != nil {
-		return nil, err
-	}
-
-	// Wait for the context to be done and cancel the evm. Even if the
-	// EVM has finished, cancelling may be done (repeatedly)
-	go func() {
-		<-ctx.Done()
-		evm.Cancel()
-	}()
-
-	var contractAddr common.Address
-
-	// even the creation of a contract (init code) can invoke other contracts
-	if tx.To() != nil {
-		// removed contract availability checks as they are performed in checkAndHandlePrivateTransaction
-		_, _, err = evm.Call(vm.AccountRef(addr), *tx.To(), tx.Data(), tx.Gas(), tx.Value())
-	} else {
-		_, contractAddr, _, err = evm.Create(vm.AccountRef(addr), tx.Data(), tx.Gas(), tx.Value())
-		// make sure that nonce is same in simulation as in actual block processing
-		// simulation blockNumber will be behind block processing blockNumber by at least 1
-		// only guaranteed to work for default config where EIP158=1
-		if evm.ChainConfig().IsEIP158(big.NewInt(evm.Context.BlockNumber.Int64() + 1)) {
-			evm.StateDB.SetNonce(contractAddr, 1)
-		}
-	}
-	return evm, err
 }
 
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the

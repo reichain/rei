@@ -144,8 +144,8 @@ web3._extend({
 			params: 3,
 		}),
 		new web3._extend.Method({
-			name: 'submitHashRate',
-			call: 'ethash_submitHashRate',
+			name: 'submitHashrate',
+			call: 'ethash_submitHashrate',
 			params: 2,
 		}),
 	]
@@ -198,11 +198,23 @@ web3._extend({
 			params: 2
 		}),
 		new web3._extend.Method({
+			name: 'startHTTP',
+			call: 'admin_startHTTP',
+			params: 5,
+			inputFormatter: [null, null, null, null, null]
+		}),
+		new web3._extend.Method({
+			name: 'stopHTTP',
+			call: 'admin_stopHTTP'
+		}),
+		// This method is deprecated.
+		new web3._extend.Method({
 			name: 'startRPC',
 			call: 'admin_startRPC',
-			params: 4,
-			inputFormatter: [null, null, null, null]
+			params: 5,
+			inputFormatter: [null, null, null, null, null]
 		}),
+		// This method is deprecated.
 		new web3._extend.Method({
 			name: 'stopRPC',
 			call: 'admin_stopRPC'
@@ -593,10 +605,10 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
-			name: 'storageRoot',
-			call: 'eth_storageRoot',
+			name: 'createAccessList',
+			call: 'eth_createAccessList',
 			params: 2,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null]
+			inputFormatter: [null, web3._extend.formatters.inputBlockNumberFormatter],
 		}),
 	],
 	properties: [
