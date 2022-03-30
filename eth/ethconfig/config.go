@@ -213,7 +213,6 @@ type Config struct {
 func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
-		// chainConfig.Clique.AllowedFutureBlockTime = config.Miner.AllowedFutureBlockTime // Quorum
 		return clique.New(chainConfig.Clique, db)
 	}
 	// Otherwise assume proof-of-work

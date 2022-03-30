@@ -227,13 +227,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.LegacyRPCApiFlag,
 		},
 	},
-	// QUORUM
-	{
-		Name: "QUORUM",
-		Flags: []cli.Flag{
-			utils.AllowedFutureBlockTimeFlag,
-		},
-	},
 	{
 		Name: "RAFT",
 		Flags: []cli.Flag{

@@ -154,7 +154,6 @@ var (
 		utils.RaftDNSEnabledFlag,
 		utils.SentryModeFlag,
 		utils.EmitCheckpointsFlag,
-		utils.AllowedFutureBlockTimeFlag,
 		utils.EVMCallTimeOutFlag,
 		// End-Quorum
 	}
