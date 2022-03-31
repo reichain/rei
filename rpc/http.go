@@ -70,15 +70,6 @@ func (hc *httpConn) closed() <-chan interface{} {
 	return hc.closeCh
 }
 
-func (hc *httpConn) Configure(_ SecurityContext) {
-	// Client doesn't need to implement this
-}
-
-func (hc *httpConn) Resolve() SecurityContext {
-	// Client doesn't need to implement this
-	return context.Background()
-}
-
 // HTTPTimeouts represents the configuration params for the HTTP RPC server.
 type HTTPTimeouts struct {
 	// ReadTimeout is the maximum duration for reading the entire

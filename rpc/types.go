@@ -38,10 +38,6 @@ type API struct {
 // ServerCodec implements reading, parsing and writing RPC messages for the server side of
 // a RPC session. Implementations must be go-routine safe since the codec can be called in
 // multiple go-routines concurrently.
-// Quorum:
-//   As ServerCodec is used in both client and server implementation, we extend it with the interfaces
-//   securityContextConfigurer & SecurityContextResolver to hold authorization-related information
-//   which is then used by rpc/handler to enforce the security
 type ServerCodec interface {
 	readBatch() (msgs []*jsonrpcMessage, isBatch bool, err error)
 	close()

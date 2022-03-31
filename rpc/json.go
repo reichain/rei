@@ -171,10 +171,6 @@ type jsonCodec struct {
 	encMu   sync.Mutex                // guards the encoder
 	encode  func(v interface{}) error // encoder to allow multiple transports
 	conn    deadlineCloser
-
-	// Quorum
-	// holding the security context for underlying connection
-	secCtx SecurityContext
 }
 
 // NewFuncCodec creates a codec which uses the given functions to read and write. If conn
@@ -186,7 +182,6 @@ func NewFuncCodec(conn deadlineCloser, encode, decode func(v interface{}) error)
 		encode:  encode,
 		decode:  decode,
 		conn:    conn,
-		secCtx:  context.Background(),
 	}
 	if ra, ok := conn.(ConnRemoteAddr); ok {
 		codec.remote = ra.RemoteAddr()
@@ -247,14 +242,6 @@ func (c *jsonCodec) close() {
 // Closed returns a channel which will be closed when Close is called
 func (c *jsonCodec) closed() <-chan interface{} {
 	return c.closeCh
-}
-
-func (c *jsonCodec) Configure(secCtx SecurityContext) {
-	c.secCtx = secCtx
-}
-
-func (c *jsonCodec) Resolve() SecurityContext {
-	return c.secCtx
 }
 
 // parseMessage parses raw bytes as a (batch of) JSON-RPC message(s). There are no error

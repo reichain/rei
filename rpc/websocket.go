@@ -231,7 +231,7 @@ func wsClientHeaders(endpoint, origin string) (string, http.Header, error) {
 	}
 	if endpointURL.User != nil {
 		b64auth := base64.StdEncoding.EncodeToString([]byte(endpointURL.User.String()))
-		header.Add(HttpAuthorizationHeader, "Basic "+b64auth)
+		header.Add("authorization", "Basic "+b64auth)
 		endpointURL.User = nil
 	}
 	return endpointURL.String(), header, nil
