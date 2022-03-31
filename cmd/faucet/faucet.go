@@ -41,7 +41,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/gorilla/websocket"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -60,7 +60,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/gorilla/websocket"
 )
 
 var (
@@ -505,7 +504,7 @@ func (f *faucet) apiHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// Submit the transaction and mark as funded if successful
-			if err := f.client.SendTransaction(context.Background(), signed, bind.PrivateTxArgs{}); err != nil {
+			if err := f.client.SendTransaction(context.Background(), signed); err != nil {
 				f.lock.Unlock()
 				if err = sendError(wsconn, err); err != nil {
 					log.Warn("Failed to send transaction transmission error to client", "err", err)

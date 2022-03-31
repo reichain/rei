@@ -1648,11 +1648,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 }
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
-// Quorum: introducing additional arguments encapsulated in PrivateTxArgs struct
-//		   to support private transactions processing.
 type SendTxArgs struct {
-	PrivateTxArgs // Quorum
-
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1666,21 +1662,7 @@ type SendTxArgs struct {
 
 	// For non-legacy transactions
 	AccessList *types.AccessList `json:"accessList,omitempty"`
-	ChainID    *big.Int          `json:"chainId,omitempty"`
-}
-
-// Additional arguments used in private transactions
-type PrivateTxArgs struct {
-	// PrivateFrom is the public key of the sending party.
-	// The public key must be available in the Private Transaction Manager (i.e.: Tessera) which is paired with this geth node.
-	// Empty value means the Private Transaction Manager will use the first public key
-	// in its list of available keys which it maintains.
-	PrivateFrom string `json:"privateFrom"`
-	// PrivateFor is the list of public keys which are available in the Private Transaction Managers in the network.
-	// The transaction payload is only visible to those party to the transaction.
-	PrivateFor          []string `json:"privateFor"`
-	PrivateTxType       string   `json:"restriction"`
-	MandatoryRecipients []string `json:"mandatoryFor"`
+	ChainID    *hexutil.Big      `json:"chainId,omitempty"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1741,19 +1723,13 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		args.Gas = &estimated
 		log.Trace("Estimate gas usage automatically", "gas", args.Gas)
 	}
-	// Quorum
 	if args.ChainID == nil {
-		args.ChainID = b.ChainConfig().ChainID
-	}
-	if args.PrivateTxType == "" {
-		args.PrivateTxType = "restricted"
+		id := (*hexutil.Big)(b.ChainConfig().ChainID)
+		args.ChainID = id
 	}
 	return nil
-	// End-Quorum
 }
 
-// toTransaction converts the arguments to a transaction.
-// This assumes that setDefaults has been called.
 func (args *SendTxArgs) toTransaction() *types.Transaction {
 	var input []byte
 	if args.Input != nil {
@@ -1774,7 +1750,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	} else {
 		data = &types.AccessListTx{
 			To:         args.To,
-			ChainID:    args.ChainID,
+			ChainID:    (*big.Int)(args.ChainID),
 			Nonce:      uint64(*args.Nonce),
 			Gas:        uint64(*args.Gas),
 			GasPrice:   (*big.Int)(args.GasPrice),
@@ -1786,7 +1762,6 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTx(data)
 }
 
-// TODO: this submits a signed transaction, if it is a signed private transaction that should already be recorded in the tx.
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	// If the transaction fee cap is already specified, ensure the
