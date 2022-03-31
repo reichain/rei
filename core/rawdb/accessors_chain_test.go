@@ -27,13 +27,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -397,11 +394,6 @@ func TestBlockReceiptStorage(t *testing.T) {
 		if err := checkReceiptsRLP(rs, receipts); err != nil {
 			t.Fatalf(err.Error())
 		}
-		// check that the raw data does not contain the quorumExtraData array (since the prepared receipts do not have any quorumExtraData)
-		receiptData := ReadReceiptsRLP(db, hash, 0)
-		_, extraData, err := rlp.SplitList(receiptData)
-		assert.NoError(t, err)
-		assert.Empty(t, extraData)
 	}
 	// Delete the body and ensure that the receipts are no longer returned (metadata can't be recomputed)
 	DeleteBody(db, hash, 0)
@@ -534,21 +526,5 @@ func TestCanonicalHashIteration(t *testing.T) {
 		if !reflect.DeepEqual(numbers, c.expect) {
 			t.Fatalf("Case %d failed, want %v, got %v", i, c.expect, numbers)
 		}
-	}
-}
-
-func WriteReceiptsMPSV1(db ethdb.KeyValueWriter, hash common.Hash, number uint64, receipts types.Receipts) {
-	// Convert the receipts into their storage form and serialize them
-	storageReceipts := make([]*types.ReceiptForStorageMPSV1, len(receipts))
-	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorageMPSV1)(receipt)
-	}
-	bytes, err := rlp.EncodeToBytes(storageReceipts)
-	if err != nil {
-		log.Crit("Failed to encode block receipts", "err", err)
-	}
-	// Store the flattened receipt slice
-	if err := db.Put(blockReceiptsKey(number, hash), bytes); err != nil {
-		log.Crit("Failed to store block receipts", "err", err)
 	}
 }

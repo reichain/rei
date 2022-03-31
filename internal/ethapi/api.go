@@ -1598,19 +1598,17 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	receipt := receipts[index]
 
-	// Quorum: note that upstream code has been refactored into this method
-	return getTransactionReceiptCommonCode(tx, blockHash, blockNumber, hash, index, receipt)
-}
+	// Derive the sender.
+	bigblock := new(big.Int).SetUint64(blockNumber)
+	signer := types.MakeSigner(s.b.ChainConfig(), bigblock)
+	from, _ := types.Sender(signer, tx)
 
-// Quorum
-// Common code extracted from GetTransactionReceipt() to enable reuse
-func getTransactionReceiptCommonCode(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, hash common.Hash, index uint64, receipt *types.Receipt) (map[string]interface{}, error) {
 	fields := map[string]interface{}{
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(blockNumber),
 		"transactionHash":   hash,
 		"transactionIndex":  hexutil.Uint64(index),
-		"from":              tx.From(),
+		"from":              from,
 		"to":                tx.To(),
 		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
 		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
@@ -1619,12 +1617,6 @@ func getTransactionReceiptCommonCode(tx *types.Transaction, blockHash common.Has
 		"logsBloom":         receipt.Bloom,
 		"type":              hexutil.Uint(tx.Type()),
 	}
-
-	// Quorum
-	if len(receipt.RevertReason) > 0 {
-		fields["revertReason"] = hexutil.Encode(receipt.RevertReason)
-	}
-	// End Quorum
 
 	// Assign receipt status or post state.
 	if len(receipt.PostState) > 0 {

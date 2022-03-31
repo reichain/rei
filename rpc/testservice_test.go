@@ -23,8 +23,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/core/types"
 )
 
 func newTestServer() *Server {
@@ -64,10 +62,6 @@ type echoResult struct {
 	String string
 	Int    int
 	Args   *echoArgs
-}
-
-type echoPSIResult struct {
-	PSI types.PrivateStateIdentifier
 }
 
 type testError struct{}
