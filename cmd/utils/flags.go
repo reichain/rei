@@ -775,6 +775,11 @@ var (
 		Name:  "raftdnsenable",
 		Usage: "Enable DNS resolution of peers",
 	}
+
+	CatalystFlag = cli.BoolFlag{
+		Name:  "catalyst",
+		Usage: "Catalyst mode (eth2 integration testing)",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1180,10 +1185,11 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NetRestrict = list
 	}
 
-	// if ctx.GlobalBool(DeveloperFlag.Name) {
+	// if ctx.GlobalBool(DeveloperFlag.Name) || ctx.GlobalBool(CatalystFlag.Name) {
 	// 	// --dev mode can't use p2p networking.
 	// 	cfg.MaxPeers = 0
-	// 	cfg.ListenAddr = ":0"
+	// 	cfg.ListenAddr = ""
+	//  cfg.NoDial = true
 	// 	cfg.NoDiscovery = true
 	// 	cfg.DiscoveryV5 = false
 	// }
@@ -1668,7 +1674,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		// 	if ctx.GlobalIsSet(DataDirFlag.Name) {
 		// 		// Check if we have an already initialized chain and fall back to
 		// 		// that if so. Otherwise we need to generate a new genesis spec.
-		// 		chaindb := MakeChainDatabase(ctx, stack, true)
+		// 		chaindb := MakeChainDatabase(ctx, stack, false) // TODO (MariusVanDerWijden) make this read only
 		// 		if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
 		// 			cfg.Genesis = nil // fallback to db content
 		// 		}
@@ -1696,15 +1702,13 @@ func SetDNSDiscoveryDefaults(cfg *ethconfig.Config, genesis common.Hash) {
 	}
 	if url := params.KnownDNSNetwork(genesis, protocol); url != "" {
 		cfg.EthDiscoveryURLs = []string{url}
-	}
-	if cfg.SyncMode == downloader.SnapSync {
-		if url := params.KnownDNSNetwork(genesis, "snap"); url != "" {
-			cfg.SnapDiscoveryURLs = []string{url}
-		}
+		cfg.SnapDiscoveryURLs = cfg.EthDiscoveryURLs
 	}
 }
 
 // RegisterEthService adds an Ethereum client to the stack.
+// The second return value is the full node instance, which may be nil if the
+// node is running as a light client.
 // Quorum => returns also the ethereum service which is used by the raft service
 func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend, *eth.Ethereum) {
 	if cfg.SyncMode == downloader.LightSync {

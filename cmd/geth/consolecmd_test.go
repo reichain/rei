@@ -18,8 +18,6 @@ package main
 
 import (
 	"crypto/rand"
-	"crypto/tls"
-	"flag"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -30,10 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/params"
-	testifyassert "github.com/stretchr/testify/assert"
-	"gopkg.in/urfave/cli.v1"
 )
 
 const (
@@ -87,7 +82,6 @@ func runMinimalGeth(t *testing.T, args ...string) *testgeth {
 // Tests that a node embedded within a console can be started up properly and
 // then terminated by closing the input stream.
 func TestConsoleWelcome(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	coinbase := "0x491937757d1b26e29c507b8d4c0b233c2747e68d"
 
 	datadir := setupIstanbul(t)
@@ -130,7 +124,6 @@ func TestAttachWelcome(t *testing.T) {
 		httpPort string
 		wsPort   string
 	)
-	defer SetResetPrivateConfig("ignore")()
 	// Configure the instance for IPC attachment
 	coinbase := "0x491937757d1b26e29c507b8d4c0b233c2747e68d"
 
@@ -166,7 +159,6 @@ func TestAttachWelcome(t *testing.T) {
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	coinbase := "0x491937757d1b26e29c507b8d4c0b233c2747e68d"
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 
@@ -183,7 +175,6 @@ func TestHTTPAttachWelcome(t *testing.T) {
 }
 
 func TestWSAttachWelcome(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	coinbase := "0x491937757d1b26e29c507b8d4c0b233c2747e68d"
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 
@@ -265,58 +256,4 @@ func setupIstanbul(t *testing.T) string {
 	runGeth(t, "--datadir", datadir, "init", json).WaitExit()
 
 	return datadir
-}
-
-func TestReadTLSClientConfig_whenCustomizeTLSCipherSuites(t *testing.T) {
-	assert := testifyassert.New(t)
-
-	flagSet := new(flag.FlagSet)
-	flagSet.Bool(utils.RPCClientTLSInsecureSkipVerify.Name, true, "")
-	flagSet.String(utils.RPCClientTLSCipherSuites.Name, "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,  TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", "")
-	ctx := cli.NewContext(nil, flagSet, nil)
-
-	tlsConf, ok, err := readTLSClientConfig("https://arbitraryendpoint", ctx)
-
-	assert.NoError(err)
-	assert.True(ok, "has custom TLS client configuration")
-	assert.True(tlsConf.InsecureSkipVerify)
-	assert.Len(tlsConf.CipherSuites, 2)
-	assert.Contains(tlsConf.CipherSuites, tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)
-	assert.Contains(tlsConf.CipherSuites, tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)
-}
-
-func TestReadTLSClientConfig_whenTypicalTLS(t *testing.T) {
-	assert := testifyassert.New(t)
-
-	flagSet := new(flag.FlagSet)
-	ctx := cli.NewContext(nil, flagSet, nil)
-
-	tlsConf, ok, err := readTLSClientConfig("https://arbitraryendpoint", ctx)
-
-	assert.NoError(err)
-	assert.False(ok, "no custom TLS client configuration")
-	assert.Nil(tlsConf, "no custom TLS config is set")
-}
-
-func TestReadTLSClientConfig_whenTLSInsecureFlagSet(t *testing.T) {
-	assert := testifyassert.New(t)
-
-	flagSet := new(flag.FlagSet)
-	flagSet.Bool(utils.RPCClientTLSInsecureSkipVerify.Name, true, "")
-	ctx := cli.NewContext(nil, flagSet, nil)
-
-	tlsConf, ok, err := readTLSClientConfig("https://arbitraryendpoint", ctx)
-
-	assert.NoError(err)
-	assert.True(ok, "has custom TLS client configuration")
-	assert.True(tlsConf.InsecureSkipVerify)
-	assert.Len(tlsConf.CipherSuites, 0)
-}
-
-func SetResetPrivateConfig(value string) func() {
-	existingValue := os.Getenv("PRIVATE_CONFIG")
-	os.Setenv("PRIVATE_CONFIG", value)
-	return func() {
-		os.Setenv("PRIVATE_CONFIG", existingValue)
-	}
 }

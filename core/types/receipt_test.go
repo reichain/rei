@@ -24,11 +24,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDecodeEmptyTypedReceipt(t *testing.T) {
@@ -422,101 +423,6 @@ func TestDeriveFields(t *testing.T) {
 	}
 }
 
-// Tests that receipt data can be correctly derived from the contextual infos
-// Tests public, private, and private mps txs/receipts
-func TestDeriveFieldsMPS(t *testing.T) {
-	// Create a public tx, private tx, psi tx
-	pubT := NewContractCreation(1, big.NewInt(1), 1, big.NewInt(1), nil)
-	privT := NewContractCreation(2, big.NewInt(2), 2, big.NewInt(2), nil)
-	privT.SetPrivate()
-	psiT := NewTransaction(3, common.HexToAddress("0x3"), big.NewInt(3), 3, big.NewInt(3), nil)
-	psiT.SetPrivate()
-	//3 transactions: public, private, and private with mps
-	txs := Transactions{
-		pubT,
-		privT,
-		psiT,
-	}
-	publicReceipt := &Receipt{
-		Status:            ReceiptStatusFailed,
-		CumulativeGasUsed: 1,
-		Logs: []*Log{
-			{Address: common.BytesToAddress([]byte{0x11})},
-			{Address: common.BytesToAddress([]byte{0x01, 0x11})},
-		},
-		TxHash:          txs[0].Hash(),
-		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
-		GasUsed:         1,
-	}
-	innerPrivateReceipt := &Receipt{
-		PostState:         common.Hash{2}.Bytes(),
-		CumulativeGasUsed: 3,
-		Logs: []*Log{
-			{Address: common.BytesToAddress([]byte{0x22})},
-			{Address: common.BytesToAddress([]byte{0x02, 0x22})},
-		},
-		TxHash:          txs[1].Hash(),
-		ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
-		GasUsed:         2,
-	}
-	innerPSIReceipt := &Receipt{
-		PostState:         common.Hash{3}.Bytes(),
-		CumulativeGasUsed: 6,
-		Logs: []*Log{
-			{Address: common.BytesToAddress([]byte{0x33})},
-			{Address: common.BytesToAddress([]byte{0x03, 0x33})},
-		},
-		TxHash:          txs[2].Hash(),
-		ContractAddress: common.BytesToAddress([]byte{0x03, 0x33, 0x33}),
-		GasUsed:         1,
-	}
-	psiReceipt := innerPSIReceipt
-	psiReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
-	psiReceipt.PSReceipts[PrivateStateIdentifier("psi1")] = innerPSIReceipt
-	psiReceipt.PSReceipts[EmptyPrivateStateIdentifier] = innerPSIReceipt
-
-	privateReceipt := innerPrivateReceipt
-	privateReceipt.PSReceipts = make(map[PrivateStateIdentifier]*Receipt)
-	privateReceipt.PSReceipts[EmptyPrivateStateIdentifier] = innerPrivateReceipt
-	// Create the corresponding receipts: public, private, psi
-	receipts := Receipts{
-		publicReceipt,
-		privateReceipt,
-		psiReceipt,
-	}
-	// Clear all the computed fields and re-derive them
-	number := big.NewInt(1)
-	hash := common.BytesToHash([]byte{0x03, 0x14})
-
-	clearComputedFieldsOnReceipts(t, receipts)
-	if err := receipts.DeriveFields(params.QuorumMPSTestChainConfig, hash, number.Uint64(), txs); err != nil {
-		t.Fatalf("DeriveFields(...) = %v, want <nil>", err)
-	}
-	// Iterate over all the computed fields and check that they're correct
-	signer := MakeSigner(params.QuorumMPSTestChainConfig, number)
-
-	for i := range receipts {
-		testReceiptFields(t, receipts[i], txs, i, "receipt"+strconv.Itoa(i), hash, number, signer)
-	}
-	//check psi info on public and private receipt
-	assert.Empty(t, receipts[0].PSReceipts)
-	privRec := receipts[1]
-	assert.Equal(t, 1, len(privRec.PSReceipts))
-	assert.Contains(t, privRec.PSReceipts, EmptyPrivateStateIdentifier)
-	for _, pR := range privRec.PSReceipts {
-		testReceiptFields(t, pR, txs, 1, "privateReceipt", hash, number, signer)
-	}
-
-	//check psi info on private mps receipt
-	psiRec := receipts[2]
-	assert.Equal(t, 2, len(psiRec.PSReceipts))
-	assert.Contains(t, psiRec.PSReceipts, EmptyPrivateStateIdentifier)
-	assert.Contains(t, psiRec.PSReceipts, PrivateStateIdentifier("psi1"))
-	for _, pR := range psiRec.PSReceipts {
-		testReceiptFields(t, pR, txs, 2, "psiReceipt", hash, number, signer)
-	}
-}
-
 func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex int, receiptName string, blockHash common.Hash, blockNumber *big.Int, signer Signer) {
 	if receipt.Type != txs[txIndex].Type() {
 		t.Errorf("%s.Type = %d, want %d", receiptName, receipt.Type, txs[txIndex].Type())
@@ -561,10 +467,10 @@ func testReceiptFields(t *testing.T, receipt *Receipt, txs Transactions, txIndex
 			t.Errorf("%s.Logs[%d].TransactionIndex = %d, want %d", receiptName, j, receipt.Logs[j].TxIndex, txIndex)
 		}
 		// TODO: @achraf have a look how to include this
-		//if receipts[i].Logs[j].Index != logIndex {
+		// if receipts[i].Logs[j].Index != logIndex {
 		//	t.Errorf("receipts[%d].Logs[%d].Index = %d, want %d", i, j, receipts[i].Logs[j].Index, logIndex)
-		//}
-		//logIndex++
+		// }
+		// logIndex++
 	}
 }
 

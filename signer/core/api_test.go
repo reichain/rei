@@ -39,7 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/signer/storage"
 )
 
-//Used for testing
+// Used for testing
 type headlessUi struct {
 	approveCh chan string // to send approve/deny
 	inputCh   chan string // to send password
@@ -77,7 +77,7 @@ func (ui *headlessUi) ApproveSignData(request *core.SignDataRequest) (core.SignD
 
 func (ui *headlessUi) ApproveListing(request *core.ListRequest) (core.ListResponse, error) {
 	approval := <-ui.approveCh
-	//fmt.Printf("approval %s\n", approval)
+	// fmt.Printf("approval %s\n", approval)
 	switch approval {
 	case "A":
 		return core.ListResponse{request.Accounts}, nil
@@ -98,12 +98,12 @@ func (ui *headlessUi) ApproveNewAccount(request *core.NewAccountRequest) (core.N
 }
 
 func (ui *headlessUi) ShowError(message string) {
-	//stdout is used by communication
+	// stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
 
 func (ui *headlessUi) ShowInfo(message string) {
-	//stdout is used by communication
+	// stdout is used by communication
 	fmt.Fprintln(os.Stderr, message)
 }
 
@@ -125,7 +125,7 @@ func setup(t *testing.T) (*core.SignerAPI, *headlessUi) {
 		t.Fatal(err.Error())
 	}
 	ui := &headlessUi{make(chan string, 20), make(chan string, 20)}
-	am := core.StartClefAccountManager(tmpDirName(t), true, true, nil, "")
+	am := core.StartClefAccountManager(tmpDirName(t), true, true, "")
 	api := core.NewSignerAPI(am, 1337, true, ui, db, true, &storage.NoStorage{})
 	return api, ui
 
@@ -288,7 +288,7 @@ func TestSignTx(t *testing.T) {
 	parsedTx := &types.Transaction{}
 	rlp.Decode(bytes.NewReader(res.Raw), parsedTx)
 
-	//The tx should NOT be modified by the UI
+	// The tx should NOT be modified by the UI
 	if parsedTx.Value().Cmp(tx.Value.ToInt()) != 0 {
 		t.Errorf("Expected value to be unchanged, expected %v got %v", tx.Value, parsedTx.Value())
 	}
@@ -303,7 +303,7 @@ func TestSignTx(t *testing.T) {
 		t.Error("Expected tx to be unmodified by UI")
 	}
 
-	//The tx is modified by the UI
+	// The tx is modified by the UI
 	control.approveCh <- "M"
 	control.inputCh <- "a_long_password"
 
@@ -314,7 +314,7 @@ func TestSignTx(t *testing.T) {
 	parsedTx2 := &types.Transaction{}
 	rlp.Decode(bytes.NewReader(res.Raw), parsedTx2)
 
-	//The tx should be modified by the UI
+	// The tx should be modified by the UI
 	if parsedTx2.Value().Cmp(tx.Value.ToInt()) != 0 {
 		t.Errorf("Expected value to be unchanged, got %v", parsedTx.Value())
 	}

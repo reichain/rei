@@ -190,7 +190,6 @@ Fatal: could not decrypt key with given password
 }
 
 func TestUnlockFlag(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGethWithRaftConsensus(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "js", "testdata/empty.js")
 	geth.Expect(`
@@ -212,8 +211,6 @@ Password: {{.InputLine "foobar"}}
 }
 
 func TestGethDoesntStartWithoutConfiguredConsensus(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
-
 	datadir := tmpDatadirWithKeystore(t)
 	geth := runGeth(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0")
@@ -225,8 +222,6 @@ func TestGethDoesntStartWithoutConfiguredConsensus(t *testing.T) {
 }
 
 func TestGethStartsWhenConsensusAndPrivateConfigAreConfigured(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
-
 	datadir := tmpDatadirWithKeystore(t)
 	geth := runGeth(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0", "--raft")
@@ -235,7 +230,6 @@ func TestGethStartsWhenConsensusAndPrivateConfigAreConfigured(t *testing.T) {
 }
 
 func TestUnlockFlagWrongPassword(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "js", "testdata/empty.js")
 	defer geth.ExpectExit()
@@ -253,7 +247,6 @@ Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could 
 
 // https://github.com/ethereum/go-ethereum/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGethWithRaftConsensus(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--unlock", "0,2", "js", "testdata/empty.js")
 	geth.Expect(`
@@ -278,7 +271,6 @@ Password: {{.InputLine "foobar"}}
 }
 
 func TestUnlockFlagPasswordFile(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGethWithRaftConsensus(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--password", "testdata/passwords.txt", "--unlock", "0,2", "js", "testdata/empty.js")
 	geth.ExpectExit()
@@ -296,7 +288,6 @@ func TestUnlockFlagPasswordFile(t *testing.T) {
 }
 
 func TestUnlockFlagPasswordFileWrongPassword(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--password",
 		"testdata/wrong-passwords.txt", "--unlock", "0,2")
@@ -307,7 +298,6 @@ Fatal: Failed to unlock account 0 (could not decrypt key with given password)
 }
 
 func TestUnlockFlagAmbiguous(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	datadir := tmpDatadirWithKeystore(t)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	geth := runMinimalGethWithRaftConsensus(t, "--datadir", datadir, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
@@ -347,7 +337,6 @@ In order to avoid this warning, you need to remove the following duplicate key f
 }
 
 func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
-	defer SetResetPrivateConfig("ignore")()
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
