@@ -25,11 +25,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/internal/testlog"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestCorsHandler makes sure CORS are properly handled on the http server.
@@ -233,12 +234,12 @@ func createAndStartServer(t *testing.T, conf *httpConfig, ws bool, wsConf *wsCon
 	t.Helper()
 
 	srv := newHTTPServer(testlog.Logger(t, log.LvlDebug), rpc.DefaultHTTPTimeouts)
-	assert.NoError(t, srv.enableRPC(nil, *conf, nil))
+	assert.NoError(t, srv.enableRPC(nil, *conf))
 	if ws {
-		assert.NoError(t, srv.enableWS(nil, *wsConf, nil))
+		assert.NoError(t, srv.enableWS(nil, *wsConf))
 	}
 	assert.NoError(t, srv.setListenAddr("localhost", 0))
-	assert.NoError(t, srv.start(nil))
+	assert.NoError(t, srv.start())
 	return srv
 }
 
