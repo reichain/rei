@@ -17,15 +17,11 @@
 package ethapi
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -1992,62 +1988,4 @@ func toHexSlice(b [][]byte) []string {
 		r[i] = hexutil.Encode(b[i])
 	}
 	return r
-}
-
-// Quorum
-// Please note: This is a temporary integration to improve performance in high-latency
-// environments when sending many private transactions. It will be removed at a later
-// date when account management is handled outside Ethereum.
-
-type AsyncSendTxArgs struct {
-	TransactionArgs
-	CallbackUrl string `json:"callbackUrl"`
-}
-
-type AsyncResultSuccess struct {
-	Id     string      `json:"id,omitempty"`
-	TxHash common.Hash `json:"txHash"`
-}
-
-type AsyncResultFailure struct {
-	Id    string `json:"id,omitempty"`
-	Error string `json:"error"`
-}
-
-type Async struct {
-	sync.Mutex
-	sem chan struct{}
-}
-
-func (s *PublicTransactionPoolAPI) send(ctx context.Context, asyncArgs AsyncSendTxArgs) {
-
-	txHash, err := s.SendTransaction(ctx, asyncArgs.TransactionArgs)
-
-	if asyncArgs.CallbackUrl != "" {
-
-		// don't need to nil check this since id is required for every geth rpc call
-		// even though this is stated in the specification as an "optional" parameter
-		jsonId := ctx.Value("id").(*json.RawMessage)
-		id := string(*jsonId)
-
-		var resultResponse interface{}
-		if err != nil {
-			resultResponse = &AsyncResultFailure{Id: id, Error: err.Error()}
-		} else {
-			resultResponse = &AsyncResultSuccess{Id: id, TxHash: txHash}
-		}
-
-		buf := new(bytes.Buffer)
-		err := json.NewEncoder(buf).Encode(resultResponse)
-		if err != nil {
-			log.Info("Error encoding callback JSON", "err", err.Error())
-			return
-		}
-		_, err = http.Post(asyncArgs.CallbackUrl, "application/json", buf)
-		if err != nil {
-			log.Info("Error sending callback", "err", err.Error())
-			return
-		}
-	}
-
 }
