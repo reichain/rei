@@ -1,5 +1,5 @@
 # Build Geth in a stock Go builder container
-FROM golang:1.18.0-alpine as builder
+FROM golang:1.18.1-alpine as builder
 
 ENV GOAMD64=v3
 
