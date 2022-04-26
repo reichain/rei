@@ -214,13 +214,6 @@ func initGenesis(ctx *cli.Context) error {
 	// Quorum
 	file.Seek(0, 0)
 	genesis.Config.IsQuorum = getIsQuorum(file)
-
-	// check the data given as a part of newMaxConfigData to ensure that
-	// its in expected order
-	err = genesis.Config.CheckMaxCodeConfigData()
-	if err != nil {
-		utils.Fatalf("maxCodeSize data invalid: %v", err)
-	}
 	// End Quorum
 
 	// Open and initialise both full and light databases

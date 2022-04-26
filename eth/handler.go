@@ -613,21 +613,13 @@ type NodeInfo struct {
 
 // NodeInfo retrieves some protocol metadata about the running host node.
 func (h *handler) NodeInfo() *NodeInfo {
-	currentBlock := h.chain.CurrentBlock()
-	// //Quorum
-	//
-	// changes done to fetch maxCodeSize dynamically based on the
-	// maxCodeSizeConfig changes
-	// /Quorum
-	chainConfig := h.chain.Config()
-	chainConfig.MaxCodeSize = uint64(chainConfig.GetMaxCodeSize(h.chain.CurrentBlock().Number()) / 1024)
-
+	head := h.chain.CurrentBlock()
 	return &NodeInfo{
 		Network:    h.networkID,
-		Difficulty: h.chain.GetTd(currentBlock.Hash(), currentBlock.NumberU64()),
+		Difficulty: h.chain.GetTd(head.Hash(), head.NumberU64()),
 		Genesis:    h.chain.Genesis().Hash(),
-		Config:     chainConfig,
-		Head:       currentBlock.Hash(),
+		Config:     h.chain.Config(),
+		Head:       head.Hash(),
 		Consensus:  h.getConsensusAlgorithm(),
 	}
 }

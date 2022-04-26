@@ -152,11 +152,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
-	if !rawdb.GetIsQuorumEIP155Activated(chainDb) && chainConfig.ChainID != nil {
-		// Upon starting the node, write the flag to disallow changing ChainID/EIP155 block after HF
-		rawdb.WriteQuorumEIP155Activation(chainDb)
-	}
-
 	eth := &Ethereum{
 		config:                          config,
 		chainDb:                         chainDb,

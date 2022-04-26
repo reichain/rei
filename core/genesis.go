@@ -171,20 +171,6 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 		} else {
 			log.Info("Writing custom genesis block")
 		}
-
-		// Quorum: Set default transaction size limit if not set in genesis
-		if genesis.Config.TransactionSizeLimit == 0 {
-			genesis.Config.TransactionSizeLimit = DefaultTxPoolConfig.TransactionSizeLimit
-		}
-
-		// Check transaction size limit and max contract code size
-		err := genesis.Config.IsValid()
-		if err != nil {
-			return genesis.Config, common.Hash{}, err
-		}
-
-		// /Quorum
-
 		block, err := genesis.Commit(db)
 		if err != nil {
 			return genesis.Config, common.Hash{}, err
@@ -242,7 +228,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	if height == nil {
 		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
 	}
-	compatErr := storedcfg.CheckCompatible(newcfg, *height, rawdb.GetIsQuorumEIP155Activated(db))
+	compatErr := storedcfg.CheckCompatible(newcfg, *height)
 	if compatErr != nil && *height != 0 && compatErr.RewindTo != 0 {
 		return newcfg, stored, compatErr
 	}

@@ -49,8 +49,7 @@ const (
 	// non-trivial consequences: larger transactions are significantly harder and
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
-	// txMaxSize = 4 * txSlotSize // 128KB
-	// Quorum - value above is not used. instead, ChainConfig.TransactionSizeLimit is used
+	txMaxSize = 4 * txSlotSize // 128KB
 )
 
 var (
@@ -570,21 +569,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if !pool.eip1559 && tx.Type() == types.DynamicFeeTxType {
 		return ErrTxTypeNotSupported
 	}
-	// Quorum
-	sizeLimit := pool.chainconfig.TransactionSizeLimit
-	if sizeLimit == 0 {
-		sizeLimit = DefaultTxPoolConfig.TransactionSizeLimit
-	}
-	// Reject transactions over 64KB (or manually set limit) to prevent DOS attacks
-	if float64(tx.Size()) > float64(sizeLimit*1024) {
+	// Reject transactions over defined size to prevent DOS attacks
+	if uint64(tx.Size()) > txMaxSize {
 		return ErrOversizedData
 	}
-	// End Quorum
-	// Reject transactions over defined size to prevent DOS attacks
-	// if uint64(tx.Size()) > txMaxSize {
-	//  return ErrOversizedData
-	// }
-
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
