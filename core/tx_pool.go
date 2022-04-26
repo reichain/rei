@@ -85,10 +85,6 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
-
-	// ErrEtherValueUnsupported is returned if a transaction specifies an Ether Value
-	// for a private Quorum transaction.
-	ErrEtherValueUnsupported = errors.New("ether value is not supported for private transactions")
 )
 
 var (

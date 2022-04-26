@@ -127,10 +127,6 @@ func setupTxPoolWithConfig(config *params.ChainConfig) (*TxPool, *ecdsa.PrivateK
 	return pool, key
 }
 
-func setupQuorumTxPool() (*TxPool, *ecdsa.PrivateKey) {
-	return setupTxPoolWithConfig(params.QuorumTestChainConfig)
-}
-
 // validateTxPoolInternals checks various consistency invariants within the pool.
 func validateTxPoolInternals(pool *TxPool) error {
 	pool.mu.RLock()
@@ -290,70 +286,29 @@ func TestInvalidTransactions(t *testing.T) {
 
 	testAddBalance(pool, from, big.NewInt(1))
 	if err := pool.AddRemote(tx); !errors.Is(err, ErrInsufficientFunds) {
-		t.Error("expected", ErrInsufficientFunds, "; got", err)
+		t.Error("expected", ErrInsufficientFunds)
 	}
 
 	balance := new(big.Int).Add(tx.Value(), new(big.Int).Mul(new(big.Int).SetUint64(tx.Gas()), tx.GasPrice()))
 	testAddBalance(pool, from, balance)
 	if err := pool.AddRemote(tx); !errors.Is(err, ErrIntrinsicGas) {
-		t.Error("expected", ErrIntrinsicGas, "; got", err)
+		t.Error("expected", ErrIntrinsicGas, "got", err)
 	}
 
 	testSetNonce(pool, from, 1)
 	testAddBalance(pool, from, big.NewInt(0xffffffffffffff))
 	tx = transaction(0, 100000, key)
 	if err := pool.AddRemote(tx); !errors.Is(err, ErrNonceTooLow) {
-		t.Error("expected", ErrNonceTooLow, "; got", err)
+		t.Error("expected", ErrNonceTooLow)
 	}
 
 	tx = transaction(1, 100000, key)
 	pool.gasPrice = big.NewInt(1000)
 	if err := pool.AddRemote(tx); err != ErrUnderpriced {
-		t.Error("expected", ErrUnderpriced, "; got", err)
+		t.Error("expected", ErrUnderpriced, "got", err)
 	}
 	if err := pool.AddLocal(tx); err != nil {
-		t.Error("expected", nil, "; got", err)
-	}
-
-	tooMuchGas := pool.currentMaxGas + 1
-	tx1 := transaction(2, tooMuchGas, key)
-	if err := pool.AddRemote(tx1); err != ErrGasLimit {
-		t.Error("expected", ErrGasLimit, "; got", err)
-	}
-
-	data := make([]byte, (64*1024)+1)
-	tx2, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100000, big.NewInt(1), data), types.HomesteadSigner{}, key)
-	if err := pool.AddRemote(tx2); err != ErrOversizedData {
-		t.Error("expected", ErrOversizedData, "; got", err)
-	}
-
-	// Quorum
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
-	params.QuorumTestChainConfig.TransactionSizeLimit = 128
-	pool2 := NewTxPool(testTxPoolConfig, params.QuorumTestChainConfig, blockchain)
-
-	pool2.currentState.AddBalance(from, big.NewInt(0xffffffffffffff))
-	data2 := make([]byte, (127 * 1024))
-
-	tx3, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100000, big.NewInt(0), data2), types.HomesteadSigner{}, key)
-	if err := pool2.AddRemote(tx3); err != ErrIntrinsicGas {
-		t.Error("expected", ErrIntrinsicGas, "; got", err)
-	}
-
-	data3 := make([]byte, (128*1024)+1)
-	tx4, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100000, big.NewInt(0), data3), types.HomesteadSigner{}, key)
-	if err := pool2.AddRemote(tx4); err != ErrOversizedData {
-		t.Error("expected", ErrOversizedData, "; got", err)
-	}
-
-	tx5, _ := types.SignTx(types.NewTransaction(1, common.Address{}, big.NewInt(100), 0, big.NewInt(0), nil), types.HomesteadSigner{}, key)
-	balance = new(big.Int).Add(tx5.Value(), new(big.Int).Mul(new(big.Int).SetUint64(tx5.Gas()), tx5.GasPrice()))
-
-	from, _ = deriveSender(tx5)
-	pool2.currentState.AddBalance(from, balance)
-	if err := pool2.AddRemote(tx5); err != ErrEtherValueUnsupported {
-		t.Error("expected", ErrEtherValueUnsupported, "; got", err)
+		t.Error("expected", nil, "got", err)
 	}
 }
 
@@ -1236,7 +1191,7 @@ func TestTransactionAllowedTxSize(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupQuorumTxPool()
+	pool, key := setupTxPool()
 	defer pool.Stop()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -1253,25 +1208,23 @@ func TestTransactionAllowedTxSize(t *testing.T) {
 	//   - signature == 65 bytes
 	// All those fields are summed up to at most 213 bytes.
 	baseSize := uint64(213)
-	txMaxSize := params.QuorumTestChainConfig.TransactionSizeLimit * 1024
 	dataSize := txMaxSize - baseSize
 
 	// Try adding a transaction with maximal allowed size
-	gasPrice := big.NewInt(0)
-	tx := pricedDataTransaction(0, pool.currentMaxGas, gasPrice, key, dataSize)
+	tx := pricedDataTransaction(0, pool.currentMaxGas, big.NewInt(1), key, dataSize)
 	if err := pool.addRemoteSync(tx); err != nil {
 		t.Fatalf("failed to add transaction of size %d, close to maximal: %v", int(tx.Size()), err)
 	}
 	// Try adding a transaction with random allowed size
-	if err := pool.addRemoteSync(pricedDataTransaction(1, pool.currentMaxGas, gasPrice, key, uint64(rand.Intn(int(dataSize))))); err != nil {
+	if err := pool.addRemoteSync(pricedDataTransaction(1, pool.currentMaxGas, big.NewInt(1), key, uint64(rand.Intn(int(dataSize))))); err != nil {
 		t.Fatalf("failed to add transaction of random allowed size: %v", err)
 	}
 	// Try adding a transaction of minimal not allowed size
-	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentMaxGas, gasPrice, key, txMaxSize)); err == nil {
+	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentMaxGas, big.NewInt(1), key, txMaxSize)); err == nil {
 		t.Fatalf("expected rejection on slightly oversize transaction")
 	}
 	// Try adding a transaction of random not allowed size
-	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentMaxGas, gasPrice, key, dataSize+1+uint64(rand.Intn(int(10*txMaxSize))))); err == nil {
+	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentMaxGas, big.NewInt(1), key, dataSize+1+uint64(rand.Intn(10*txMaxSize)))); err == nil {
 		t.Fatalf("expected rejection on oversize transaction")
 	}
 	// Run some sanity checks on the pool internals
