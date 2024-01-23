@@ -18,8 +18,8 @@ jobs:
         id: extract
         run: |
           REF=${{ github.ref }}
-          echo ::set-output name=image_tag::$(echo $REF | sed 's/refs\/tags\/v//g')
-          echo ::set-output name=image_tag_minor_latest::$(echo $REF | sed -e 's/refs\/tags\/v//g' -e 's/^\([[:digit:]]*\.[[:digit:]]*\).*/\1/') 
+          echo "image_tag=$(echo $REF | sed 's/refs\/tags\/v//g')" >> "$GITHUB_OUTPUT"
+          echo "image_tag_minor_latest=$(echo $REF | sed -e 's/refs\/tags\/v//g' -e 's/^\([[:digit:]]*\.[[:digit:]]*\).*/\1/') " >> "$GITHUB_OUTPUT"
       - name: 'Build and publish to Docker Hub'
         uses: docker/build-push-action@v1
         with:
@@ -44,8 +44,8 @@ jobs:
         id: env
         run: |
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-          echo "::set-output name=key::$(go env GOOS)_$(go env GOARCH)"
-          echo "::set-output name=version::${GITHUB_REF##*/}"
+          echo "key=$(go env GOOS)_$(go env GOARCH)" >> $GITHUB_ENV
+          echo "version=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: 'Check out project files'
         uses: actions/checkout@v2
         with:
@@ -67,8 +67,8 @@ jobs:
             tar cfvz ${tar_file} -C build/bin geth
           fi
 
-          echo "::set-output name=tar_file::${tar_file}"
-          echo "::set-output name=checksum::$(shasum -a 256 build/bin/geth | awk '{print $1}')"
+          echo "tar_file=${tar_file}" >> $GITHUB_ENV
+          echo "checksum=$(shasum -a 256 build/bin/geth | awk '{print $1}')" >> $GITHUB_ENV
       - name: 'Verify tarball'
         working-directory: ${{ env.WORKING_DIR }}
         run: |-
@@ -102,7 +102,7 @@ jobs:
         id: env
         run: |
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-          echo "::set-output name=version::${GITHUB_REF##*/}"
+          echo "version=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: 'Download artifacts'
         uses: actions/download-artifact@v2
         with:
@@ -158,7 +158,7 @@ jobs:
           content="${content//'%'/'%25'}"
           content="${content//$'\n'/'%0A'}"
           content="${content//$'\r'/'%0D'}"
-          echo "::set-output name=content::$content"
+          echo "content=$content" >> $GITHUB_ENV
       - name: 'Create Github draft release'
         uses: actions/create-release@v1
         env:
@@ -189,8 +189,8 @@ jobs:
           gitref_path=${gitref_path/refs\/tags/tree}  # for refs/tags/v1.0.0
           gitref_path=${gitref_path#refs\/}           # for refs/pull/123/merge
           gitref_path=${gitref_path%/merge}           # for refs/pull/123/merge
-          echo "::set-output name=gitref-path::$gitref_path"
-          echo "::set-output name=version::${GITHUB_REF##*/}"
+          echo "gitref-path=$gitref_path" >> $GITHUB_ENV
+          echo "version=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: 'Prepare Slack message with full info'
         id: status
         uses: actions/github-script@0.8.0

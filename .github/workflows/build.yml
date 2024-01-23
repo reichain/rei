@@ -63,7 +63,7 @@ jobs:
           docker build -t quorumengineering/quorum:pr .
           docker save quorumengineering/quorum:pr > quorum-pr.tar
           tar cfvz $output_dir/quorum-pr.tar.gz quorum-pr.tar
-          echo "::set-output name=output_dir::$output_dir"
+          echo "output_dir=$output_dir" >> $GITHUB_ENV
       - name: 'Upload workflow artifact - Docker image'
         uses: actions/upload-artifact@v1
         with:
@@ -141,8 +141,8 @@ jobs:
           docker_env_file="${{ runner.temp }}/env.list"
           echo "TF_VAR_quorum_docker_image={ name = \"quorumengineering/quorum:pr\", local = true }" >> $docker_env_file
           echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $docker_env_file
-          echo "::set-output name=outputDir::${{ runner.temp }}"
-          echo "::set-output name=dockerEnvFile::$docker_env_file"
+          echo "outputDir=${{ runner.temp }}" >> $GITHUB_ENV
+          echo "dockerEnvFile=$docker_env_file" >> $GITHUB_ENV
       - name: 'Run acceptance tests'
         run: |
           cat ${{ steps.setup.outputs.dockerEnvFile }}
@@ -212,8 +212,8 @@ jobs:
           docker_env_file="${{ runner.temp }}/env.list"
           echo "TF_VAR_quorum_docker_image={ name = \"quorumengineering/quorum:pr\", local = true }" >> $docker_env_file
           echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $docker_env_file
-          echo "::set-output name=outputDir::${{ runner.temp }}"
-          echo "::set-output name=dockerEnvFile::$docker_env_file"
+          echo "outputDir=${{ runner.temp }}" >> $GITHUB_ENV
+          echo "dockerEnvFile=$docker_env_file" >> $GITHUB_ENV
       - name: 'Run acceptance tests'
         run: |
           cat ${{ steps.setup.outputs.dockerEnvFile }}
@@ -263,7 +263,7 @@ jobs:
           gitref_path=${gitref_path/refs\/tags/tree}  # for refs/tags/v1.0.0
           gitref_path=${gitref_path#refs\/}           # for refs/pull/123/merge
           gitref_path=${gitref_path%/merge}           # for refs/pull/123/merge
-          echo "::set-output name=gitref-path::$gitref_path"
+          echo "gitref-path=$gitref_path" >> $GITHUB_ENV
       - name: 'Prepare Slack message with full info'
         id: status
         uses: actions/github-script@0.8.0
