@@ -18,8 +18,8 @@ jobs:
         id: extract
         run: |
           REF=${{ github.ref }}
-          echo "image_tag=$(echo $REF | sed 's/refs\/tags\/v//g')" >> $GITHUB_OUTPUT
-          echo "image_tag_minor_latest=$(echo $REF | sed -e 's/refs\/tags\/v//g' -e 's/^\([[:digit:]]*\.[[:digit:]]*\).*/\1/') " >> $GITHUB_OUTPUT
+          echo "image_tag=$(echo $REF | sed 's/refs\/tags\/v//g')" >> "$GITHUB_OUTPUT"
+          echo "image_tag_minor_latest=$(echo $REF | sed -e 's/refs\/tags\/v//g' -e 's/^\([[:digit:]]*\.[[:digit:]]*\).*/\1/') " >> "$GITHUB_OUTPUT"
       - name: 'Build and publish to Docker Hub'
         uses: docker/build-push-action@v1
         with:
